@@ -69,8 +69,11 @@ public final class BuildCommand implements BlazeCommand {
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     BlazeRuntime runtime = env.getRuntime();
     List<String> targets;
-    try (SilentCloseable closeable = Profiler.instance().profile("ProjectFileSupport.getTargets")) {
-      targets = ProjectFileSupport.getTargets(runtime.getProjectFileProvider(), options);
+    try {
+      targets = TargetPatternsHelper.readFrom(env, options);
+    } catch (TargetPatternsHelper.TargetPatternsHelperException e) {
+      env.getReporter().handle(Event.error(e.getMessage()));
+      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
     if (targets.isEmpty()) {
       env.getReporter()

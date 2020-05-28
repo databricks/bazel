@@ -25,6 +25,8 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
@@ -153,6 +155,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
       boolean verifyDownloads,
       ImmutableList<Entry<String, String>> extraHttpHeaders,
       DigestUtil digestUtil,
+      AuthAndTLSOptions options,
       @Nullable final Credentials creds)
       throws Exception {
     return new HttpCacheClient(
@@ -164,6 +167,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
         verifyDownloads,
         extraHttpHeaders,
         digestUtil,
+        options,
         creds,
         null);
   }
@@ -176,6 +180,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
       boolean verifyDownloads,
       ImmutableList<Entry<String, String>> extraHttpHeaders,
       DigestUtil digestUtil,
+      AuthAndTLSOptions options,
       @Nullable final Credentials creds)
       throws Exception {
 
@@ -189,6 +194,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
           verifyDownloads,
           extraHttpHeaders,
           digestUtil,
+          options,
           creds,
           domainSocketAddress);
     } else if (Epoll.isAvailable()) {
@@ -201,6 +207,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
           verifyDownloads,
           extraHttpHeaders,
           digestUtil,
+          options,
           creds,
           domainSocketAddress);
     } else {
@@ -217,6 +224,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
       boolean verifyDownloads,
       ImmutableList<Entry<String, String>> extraHttpHeaders,
       DigestUtil digestUtil,
+      AuthAndTLSOptions options,
       @Nullable final Credentials creds,
       @Nullable SocketAddress socketAddress)
       throws Exception {
@@ -242,8 +250,9 @@ public final class HttpCacheClient implements RemoteCacheClient {
     if (useTls) {
       // OpenSsl gives us a > 2x speed improvement on fast networks, but requires netty tcnative
       // to be there which is not available on all platforms and environments.
+      // TODO: Determine what SSL Provider the GRPC SSL Context uses
       SslProvider sslProvider = OpenSsl.isAvailable() ? SslProvider.OPENSSL : SslProvider.JDK;
-      sslCtx = SslContextBuilder.forClient().sslProvider(sslProvider).build();
+      sslCtx = GoogleAuthUtils.createSSlContext(options.tlsCertificate, options.tlsClientCertificate, options.tlsClientKey);
     } else {
       sslCtx = null;
     }

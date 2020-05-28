@@ -18,6 +18,7 @@ import com.google.auth.Credentials;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.disk.DiskAndRemoteCacheClient;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
@@ -54,6 +55,7 @@ public final class RemoteCacheClientFactory {
 
   public static RemoteCacheClient create(
       RemoteOptions options,
+      AuthAndTLSOptions authOptions,
       @Nullable Credentials creds,
       Path workingDirectory,
       DigestUtil digestUtil)
@@ -61,10 +63,10 @@ public final class RemoteCacheClientFactory {
     Preconditions.checkNotNull(workingDirectory, "workingDirectory");
     if (isHttpCache(options) && isDiskCache(options)) {
       return createDiskAndHttpCache(
-          workingDirectory, options.diskCache, options, creds, digestUtil);
+          workingDirectory, options.diskCache, options, authOptions, creds, digestUtil);
     }
     if (isHttpCache(options)) {
-      return createHttp(options, creds, digestUtil);
+      return createHttp(options, creds, digestUtil, authOptions);
     }
     if (isDiskCache(options)) {
       return createDiskCache(
@@ -80,7 +82,7 @@ public final class RemoteCacheClientFactory {
   }
 
   private static RemoteCacheClient createHttp(
-      RemoteOptions options, Credentials creds, DigestUtil digestUtil) {
+      RemoteOptions options, Credentials creds, DigestUtil digestUtil, AuthAndTLSOptions authOptions) {
     Preconditions.checkNotNull(options.remoteCache, "remoteCache");
 
     try {
@@ -99,6 +101,7 @@ public final class RemoteCacheClientFactory {
               options.remoteVerifyDownloads,
               ImmutableList.copyOf(options.remoteHeaders),
               digestUtil,
+              authOptions,
               creds);
         } else {
           throw new Exception("Remote cache proxy unsupported: " + options.remoteProxy);
@@ -111,6 +114,7 @@ public final class RemoteCacheClientFactory {
             options.remoteVerifyDownloads,
             ImmutableList.copyOf(options.remoteHeaders),
             digestUtil,
+            authOptions,
             creds);
       }
     } catch (Exception e) {
@@ -136,6 +140,7 @@ public final class RemoteCacheClientFactory {
       Path workingDirectory,
       PathFragment diskCachePath,
       RemoteOptions options,
+      AuthAndTLSOptions authOptions,
       Credentials cred,
       DigestUtil digestUtil)
       throws IOException {
@@ -145,7 +150,7 @@ public final class RemoteCacheClientFactory {
       cacheDir.createDirectoryAndParents();
     }
 
-    RemoteCacheClient httpCache = createHttp(options, cred, digestUtil);
+    RemoteCacheClient httpCache = createHttp(options, cred, digestUtil, authOptions);
     return createDiskAndRemoteClient(
         workingDirectory,
         diskCachePath,

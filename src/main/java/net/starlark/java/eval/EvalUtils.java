@@ -118,6 +118,12 @@ final class EvalUtils {
             double z = xf + ((StarlarkInt) y).toFiniteDouble();
             return StarlarkFloat.of(z);
           }
+        } else if (x instanceof Dict && y instanceof Dict) {
+          // Databricks Hack: Restore dict + dict
+          Dict<Object, Object> z = Dict.of(Mutability.create("dictplus"));
+          z.update(x, Dict.of(null), null);
+          z.update(y, Dict.of(null), null);
+          return z;
         }
         break;
 

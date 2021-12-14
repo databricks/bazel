@@ -234,6 +234,7 @@ public final class RemoteModule extends BlazeModule {
           RemoteCacheClientFactory.create(
               remoteOptions,
               creds,
+              authAndTlsOptions,
               Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory"),
               digestUtil);
     } catch (IOException e) {

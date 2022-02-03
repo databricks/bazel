@@ -357,8 +357,8 @@ http_file(
 http_file(
     name = "openjdk_linux_aarch64_vanilla",
     downloaded_file_path = "zulu-linux-aarch64-vanilla.tar.gz",
-    sha256 = "a452f1b9682d9f83c1c14e54d1446e1c51b5173a3a05dcb013d380f9508562e4",
-    urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.37.48-ca-jdk11.0.6/zulu11.37.48-ca-jdk11.0.6-linux_aarch64.tar.gz"],
+    sha256 = "e5d211df9576040919eb22884189b59f50cd319877c8855e37714eff1b327d2b",
+    urls = ["https://databricks-mvn.s3.amazonaws.com/jdk/zulu11.45.27-ca-jdk11.0.10-linux_aarch64.tar.gz?AWSAccessKeyId=AKIAJLF6DMKWZKIYMPAQ&Expires=1939980161&Signature=D8lR3kBZapqdH5iUuLwzwgKaCHc%3D"],
 )
 
 http_file(

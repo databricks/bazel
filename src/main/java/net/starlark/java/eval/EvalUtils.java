@@ -127,6 +127,11 @@ final class EvalUtils {
             // int | int
             return StarlarkInt.or((StarlarkInt) x, (StarlarkInt) y);
           }
+        } else if (x instanceof Dict) {
+          if (y instanceof Dict) {
+            // dict | dict
+            return Dict.builder().putAll((Dict<?, ?>) x).putAll((Dict<?, ?>) y).build(mu);
+          }
         }
         break;
 

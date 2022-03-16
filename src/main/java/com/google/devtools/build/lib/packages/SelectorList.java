@@ -105,15 +105,25 @@ public final class SelectorList implements StarlarkValue, HasBinary {
    * Creates a list that concatenates two values, where each value may be a native type, a select
    * over that type, or a selector list over that type.
    *
-   * @throws EvalException if the values don't have the same underlying type
+   * @throws IllegalStateException if the values don't have the same underlying type
    */
-  static SelectorList concat(Object x, Object y) throws EvalException {
+  static SelectorList concat(Object x, Object y) {
     return of(Arrays.asList(x, y));
   }
 
   @Override
   public SelectorList binaryOp(TokenKind op, Object that, boolean thisLeft) throws EvalException {
-    if (op == TokenKind.PLUS) {
+    if (!canConcatenate(getNativeType(this), getNativeType(that))) {
+      throw Starlark.errorf(
+          "'%s' operator applied to incompatible types (%s, %s)",
+          op.toString(), getTypeName(thisLeft ? this : that), getTypeName(thisLeft ? that : this));
+    }
+    if (getNativeType(that).equals(Dict.class)) {
+      if (op == TokenKind.PIPE) {
+        return thisLeft ? concat(this, that) : concat(that, this);
+      }
+    }
+    else if (op == TokenKind.PLUS) {
       return thisLeft ? concat(this, that) : concat(that, this);
     }
     return null;
@@ -123,9 +133,9 @@ public final class SelectorList implements StarlarkValue, HasBinary {
    * Creates a list from the given sequence of values, which must be non-empty. Each value may be a
    * native type, a select over that type, or a selector list over that type.
    *
-   * @throws EvalException if all values don't have the same underlying type
+   * @throws IllegalStateException if all values don't have the same underlying type
    */
-  static SelectorList of(Iterable<?> values) throws EvalException {
+  static SelectorList of(Iterable<?> values) {
     Preconditions.checkArgument(!Iterables.isEmpty(values));
     ImmutableList.Builder<Object> elements = ImmutableList.builder();
     Object firstValue = null;
@@ -140,9 +150,10 @@ public final class SelectorList implements StarlarkValue, HasBinary {
         firstValue = value;
       }
       if (!canConcatenate(getNativeType(firstValue), getNativeType(value))) {
-        throw Starlark.errorf(
-            "'+' operator applied to incompatible types (%s, %s)",
-            getTypeName(firstValue), getTypeName(value));
+        throw new IllegalStateException(
+            String.format(
+                "This list should have been validated on creation but found incompatible types (%s, %s)",
+                getTypeName(firstValue), getTypeName(value)));
       }
     }
 

@@ -112,7 +112,12 @@ public final class SelectorList implements StarlarkValue, HasBinary {
 
   @Override
   public SelectorList binaryOp(TokenKind op, Object that, boolean thisLeft) throws EvalException {
-    if (op == TokenKind.PLUS) {
+    if (getNativeType(that).equals(Dict.class)) {
+      if (op == TokenKind.PIPE) {
+        return thisLeft ? concat(this, that) : concat(that, this);
+      }
+    }
+    else if (op == TokenKind.PLUS) {
       return thisLeft ? concat(this, that) : concat(that, this);
     }
     return null;

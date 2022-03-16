@@ -777,7 +777,24 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   @Test
   public void nativeTypeConcatenatedWithSelect() throws Exception {
     writeConfigRules();
+    scratch.file("java/foo/rule.bzl",
+        "def _rule_impl(ctx):",
+        "    return []",
+        "myrule = rule(",
+        "    implementation = _rule_impl,",
+        "    attrs = {",
+        "        'deps': attr.label_keyed_string_dict()",
+        "    },",
+        ")");
     scratch.file("java/foo/BUILD",
+        "load(':rule.bzl', 'myrule')",
+        "myrule(",
+        "    name = 'mytarget',",
+        "    deps = {':always': 'a'} | select({",
+        "        '//conditions:a': {':a': 'a'},",
+        "        '//conditions:b': {':b': 'b'},",
+        "    })",
+        ")",
         "java_binary(",
         "    name = 'binary',",
         "    srcs = ['binary.java'],",
@@ -802,12 +819,34 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
             "bin java/foo/libb.jar"),
         /*not expected:*/ ImmutableList.of(
             "bin java/foo/liba.jar"));
+    checkRule(
+        "//java/foo:mytarget",
+        "--test_arg=b",
+        /*expected:*/ ImmutableList.of("bin java/foo/libalways.jar", "bin java/foo/libb.jar"),
+        /*not expected:*/ ImmutableList.of("bin java/foo/liba.jar"));
   }
 
   @Test
   public void selectConcatenatedWithNativeType() throws Exception {
     writeConfigRules();
+    scratch.file("java/foo/rule.bzl",
+        "def _rule_impl(ctx):",
+        "    return []",
+        "myrule = rule(",
+        "    implementation = _rule_impl,",
+        "    attrs = {",
+        "        'deps': attr.label_keyed_string_dict()",
+        "    },",
+        ")");
     scratch.file("java/foo/BUILD",
+        "load(':rule.bzl', 'myrule')",
+        "myrule(",
+        "    name = 'mytarget',",
+        "    deps = select({",
+        "        '//conditions:a': {':a': 'a'},",
+        "        '//conditions:b': {':b': 'b'},",
+        "    }) | {':always': 'a'}",
+        ")",
         "java_binary(",
         "    name = 'binary',",
         "    srcs = ['binary.java'],",
@@ -831,12 +870,38 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
             "bin java/foo/libb.jar"),
         /*not expected:*/ ImmutableList.of(
             "bin java/foo/liba.jar"));
+
+    checkRule(
+        "//java/foo:mytarget",
+        "--test_arg=b",
+        /*expected:*/ ImmutableList.of("bin java/foo/libalways.jar", "bin java/foo/libb.jar"),
+        /*not expected:*/ ImmutableList.of("bin java/foo/liba.jar"));
   }
 
   @Test
   public void selectConcatenatedWithSelect() throws Exception {
     writeConfigRules();
+    scratch.file("java/foo/rule.bzl",
+        "def _rule_impl(ctx):",
+        "    return []",
+        "myrule = rule(",
+        "    implementation = _rule_impl,",
+        "    attrs = {",
+        "        'deps': attr.label_keyed_string_dict()",
+        "    },",
+        ")");
     scratch.file("java/foo/BUILD",
+        "load(':rule.bzl', 'myrule')",
+        "myrule(",
+        "    name = 'mytarget',",
+        "    deps = select({",
+        "        '//conditions:a': {':a': 'a'},",
+        "        '//conditions:b': {':b': 'b'},",
+        "    }) | select({",
+        "        '//conditions:a': {':a2': 'a2'},",
+        "        '//conditions:b': {':b2': 'b2'},",
+        "    })",
+        ")",
         "java_binary(",
         "    name = 'binary',",
         "    srcs = ['binary.java'],",
@@ -868,6 +933,12 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         /*not expected:*/ ImmutableList.of(
             "bin java/foo/liba.jar",
             "bin java/foo/liba2.jar"));
+
+    checkRule(
+        "//java/foo:mytarget",
+        "--test_arg=b",
+        /*expected:*/ ImmutableList.of("bin java/foo/libb.jar", "bin java/foo/libb2.jar"),
+        /*not expected:*/ ImmutableList.of("bin java/foo/liba.jar", "bin java/foo/liba2.jar"));
   }
 
   @Test

@@ -297,6 +297,18 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
               + " and 1 cpu.")
   public boolean experimentalActionResourceSet;
 
+  @Option(
+      name = "experimental_lazy_template_expansion",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.EXPERIMENTAL,
+      },
+      help =
+          "If set to true, ctx.actions.expand_template() accepts a TemplateDict"
+              + " parameter for deferred evaluation of substitution values.")
+  public boolean experimentalLazyTemplateExpansion;
 
   @Option(
       name = "experimental_analysis_test_call",
@@ -598,6 +610,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
             .setBool(
                 INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW, incompatibleExistingRulesImmutableView)
             .setBool(EXPERIMENTAL_ACTION_RESOURCE_SET, experimentalActionResourceSet)
+            .setBool(EXPERIMENTAL_LAZY_TEMPLATE_EXPANSION, experimentalLazyTemplateExpansion)
             .setBool(EXPERIMENTAL_ANALYSIS_TEST_CALL, experimentalAnalysisTestCall)
             .setBool(EXPERIMENTAL_GOOGLE_LEGACY_API, experimentalGoogleLegacyApi)
             .setBool(EXPERIMENTAL_NINJA_ACTIONS, experimentalNinjaActions)
@@ -675,6 +688,8 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   public static final String EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT =
       "-experimental_sibling_repository_layout";
   public static final String EXPERIMENTAL_ACTION_RESOURCE_SET = "+experimental_action_resource_set";
+  public static final String EXPERIMENTAL_LAZY_TEMPLATE_EXPANSION =
+      "-experimental_lazy_template_expansion";
   public static final String EXPERIMENTAL_ANALYSIS_TEST_CALL = "+experimental_analysis_test_call";
   public static final String INCOMPATIBLE_ALLOW_TAGS_PROPAGATION =
       "-incompatible_allow_tags_propagation";

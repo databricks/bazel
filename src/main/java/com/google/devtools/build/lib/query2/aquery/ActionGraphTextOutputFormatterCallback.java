@@ -49,6 +49,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.stream.Collectors;
+import net.starlark.java.eval.EvalException;
 
 /** Output callback for aquery, prints human readable output. */
 class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
@@ -100,13 +101,13 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
           }
         }
       }
-    } catch (CommandLineExpansionException e) {
+    } catch (CommandLineExpansionException | EvalException e) {
       throw new IOException(e.getMessage());
     }
   }
 
   private void writeAction(ActionAnalysisMetadata action, PrintStream printStream)
-      throws IOException, CommandLineExpansionException, InterruptedException {
+      throws IOException, CommandLineExpansionException, InterruptedException, EvalException {
     if (options.includeParamFiles && action instanceof ParameterFileWriteAction) {
       ParameterFileWriteAction parameterFileWriteAction = (ParameterFileWriteAction) action;
 

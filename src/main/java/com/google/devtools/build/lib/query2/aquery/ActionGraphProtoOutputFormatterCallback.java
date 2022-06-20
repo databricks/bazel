@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.aquery;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
@@ -105,7 +106,7 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
           }
         }
       }
-    } catch (CommandLineExpansionException e) {
+    } catch (CommandLineExpansionException | TemplateExpansionException e) {
       throw new IOException(e.getMessage());
     }
   }

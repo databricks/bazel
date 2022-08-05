@@ -127,6 +127,7 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
     ],
+    tags = ["sandbox-fs"],
 )
 
 java_library(

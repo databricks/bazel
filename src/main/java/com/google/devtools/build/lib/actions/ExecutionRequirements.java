@@ -225,6 +225,9 @@ public class ExecutionRequirements {
   /** Disables local sandboxing of a spawn. */
   public static final String NO_SANDBOX = "no-sandbox";
 
+  /** Enables use of sandboxfs for a spawn. */
+  public static final String SANDBOX_FS = "sandbox-fs";
+
   /**
    * Set for Xcode-related rules. Used for quality control to make sure that all Xcode-dependent
    * rules propagate the necessary configurations. Begins with "supports" so as not to be filtered

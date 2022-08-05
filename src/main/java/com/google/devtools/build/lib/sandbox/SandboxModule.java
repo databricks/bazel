@@ -78,7 +78,7 @@ public final class SandboxModule extends BlazeModule {
   @Nullable private Path sandboxBase;
 
   /** Instance of the sandboxfs process in use, if enabled. */
-  @Nullable private Optional<SandboxfsProcess> sandboxfsProcess = Optional<SandboxfsProcess>.empty();
+  private Optional<SandboxfsProcess> sandboxfsProcess = Optional.empty();
 
   /**
    * Collection of spawn runner instantiated during the executor setup.
@@ -231,8 +231,8 @@ public final class SandboxModule extends BlazeModule {
                         + mountPoint
                         + " by a previous command"));
       }
-      sandboxfsProcess.get.destroy();
-      sandboxfsProcess = Optional<SandboxfsProcess>.empty();
+      sandboxfsProcess.get().destroy();
+      sandboxfsProcess = Optional.empty();
     }
     // SpawnExecutionPolicy#getId returns unique base directories for each sandboxed action during
     // the life of a Bazel server instance so we don't need to worry about stale directories from
@@ -543,8 +543,8 @@ public final class SandboxModule extends BlazeModule {
   private void unmountSandboxfs() {
     if (sandboxfsProcess.isPresent()) {
       if (shouldCleanupSandboxBase) {
-        sandboxfsProcess.get.destroy();
-        sandboxfsProcess = Optional<SandboxfsProcess>.empty();
+        sandboxfsProcess.get().destroy();
+        sandboxfsProcess = Optional.empty();
       } else {
         checkNotNull(env, "env not initialized; was beforeCommand called?");
         env.getReporter()
@@ -556,8 +556,8 @@ public final class SandboxModule extends BlazeModule {
   /** Silently tries to unmount an existing sandboxfs instance, ignoring errors. */
   private void tryUnmountSandboxfsOnShutdown() {
     if (sandboxfsProcess.isPresent()) {
-      sandboxfsProcess.get.destroy();
-      sandboxfsProcess = Optional<SandboxfsProcess>.empty();
+      sandboxfsProcess.get().destroy();
+      sandboxfsProcess = Optional.empty();
     }
   }
 

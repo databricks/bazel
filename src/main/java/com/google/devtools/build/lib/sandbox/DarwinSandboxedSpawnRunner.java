@@ -47,7 +47,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import javax.annotation.Nullable;
+import java.util.Optional;
 
 /** Spawn runner that uses Darwin (macOS) sandboxing to execute a process. */
 final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
@@ -105,7 +105,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final boolean allowNetwork;
   private final ProcessWrapper processWrapper;
   private final Path sandboxBase;
-  @Nullable private final SandboxfsProcess sandboxfsProcess;
+  private final Optional<SandboxfsProcess> sandboxfsProcess;
   private final boolean sandboxfsMapSymlinkTargets;
   private final TreeDeleter treeDeleter;
 
@@ -132,7 +132,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       SandboxHelpers helpers,
       CommandEnvironment cmdEnv,
       Path sandboxBase,
-      @Nullable SandboxfsProcess sandboxfsProcess,
+      Optional<SandboxfsProcess> sandboxfsProcess,
       boolean sandboxfsMapSymlinkTargets,
       TreeDeleter treeDeleter)
       throws IOException, InterruptedException {
@@ -265,9 +265,9 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         allowNetwork
             || Spawns.requiresNetwork(spawn, getSandboxOptions().defaultSandboxAllowNetwork);
 
-    if (sandboxfsProcess != null) {
+    if (sandboxfsProcess.isPresent()) {
       return new SandboxfsSandboxedSpawn(
-          sandboxfsProcess,
+          sandboxfsProcess.get(),
           sandboxPath,
           workspaceName,
           commandLine,

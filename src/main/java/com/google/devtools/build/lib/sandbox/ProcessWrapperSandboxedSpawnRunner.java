@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
-import javax.annotation.Nullable;
+import java.util.Optional;
 
 /** Strategy that uses sandboxing to execute a process. */
 final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
@@ -43,7 +43,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
   private final Path execRoot;
   private final Path sandboxBase;
   private final LocalEnvProvider localEnvProvider;
-  @Nullable private final SandboxfsProcess sandboxfsProcess;
+  private final Optional<SandboxfsProcess> sandboxfsProcess;
   private final boolean sandboxfsMapSymlinkTargets;
   private final TreeDeleter treeDeleter;
 
@@ -61,7 +61,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
       SandboxHelpers helpers,
       CommandEnvironment cmdEnv,
       Path sandboxBase,
-      @Nullable SandboxfsProcess sandboxfsProcess,
+      Optional<SandboxfsProcess> sandboxfsProcess,
       boolean sandboxfsMapSymlinkTargets,
       TreeDeleter treeDeleter) {
     super(cmdEnv);
@@ -115,9 +115,9 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
             execRoot);
     SandboxOutputs outputs = helpers.getOutputs(spawn);
 
-    if (sandboxfsProcess != null) {
+    if (sandboxfsProcess.isPresent()) {
       return new SandboxfsSandboxedSpawn(
-          sandboxfsProcess,
+          sandboxfsProcess.get(),
           sandboxPath,
           workspaceName,
           commandLineBuilder.build(),

@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.time.Duration;
-import javax.annotation.Nullable;
+import java.util.Optional;
 
 /** Strategy that uses sandboxing to execute a process. */
 public final class LinuxSandboxedStrategy extends AbstractSpawnStrategy {
@@ -51,7 +51,7 @@ public final class LinuxSandboxedStrategy extends AbstractSpawnStrategy {
       CommandEnvironment cmdEnv,
       Path sandboxBase,
       Duration timeoutKillDelay,
-      @Nullable SandboxfsProcess sandboxfsProcess,
+      Optional<SandboxfsProcess> sandboxfsProcess,
       boolean sandboxfsMapSymlinkTargets,
       TreeDeleter treeDeleter)
       throws IOException {

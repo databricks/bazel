@@ -53,7 +53,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.SortedMap;
-import javax.annotation.Nullable;
+import java.util.Optional;
 
 /** Spawn runner that uses linux sandboxing APIs to execute a local subprocess. */
 final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
@@ -116,7 +116,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final Path inaccessibleHelperDir;
   private final LocalEnvProvider localEnvProvider;
   private final Duration timeoutKillDelay;
-  @Nullable private final SandboxfsProcess sandboxfsProcess;
+  private final Optional<SandboxfsProcess> sandboxfsProcess;
   private final boolean sandboxfsMapSymlinkTargets;
   private final TreeDeleter treeDeleter;
 
@@ -140,7 +140,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       Path inaccessibleHelperFile,
       Path inaccessibleHelperDir,
       Duration timeoutKillDelay,
-      @Nullable SandboxfsProcess sandboxfsProcess,
+      Optional<SandboxfsProcess> sandboxfsProcess,
       boolean sandboxfsMapSymlinkTargets,
       TreeDeleter treeDeleter) {
     super(cmdEnv);
@@ -221,9 +221,9 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       commandLineBuilder.setStatisticsPath(statisticsPath);
     }
 
-    if (sandboxfsProcess != null) {
+    if (sandboxfsProcess.isPresent()) {
       return new SandboxfsSandboxedSpawn(
-          sandboxfsProcess,
+          sandboxfsProcess.get(),
           sandboxPath,
           workspaceName,
           commandLineBuilder.build(),

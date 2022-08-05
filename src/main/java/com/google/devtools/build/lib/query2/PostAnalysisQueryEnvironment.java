@@ -33,6 +33,8 @@ import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.graph.Digraph;
+import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -78,6 +80,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -482,6 +485,26 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
               /*resolvedAspectClasses=*/ new HashSet<>()));
     }
     return result;
+  }
+
+  public List<T> orderResults(Set<T> resultList) throws InterruptedException {
+    Digraph<T> graph = new Digraph<>();
+    ImmutableSet<T> resultSet = ImmutableSet.copyOf(resultList);
+
+    for (T result : resultList) {
+      Node<T> node = graph.createNode(result);
+
+      for (T dep : getFwdDeps(ImmutableList.of(result))) {
+        if (resultSet.contains(dep)) {
+          Node<T> depNode = graph.createNode(dep);
+          graph.addEdge(node, depNode);
+        }
+      }
+    }
+
+    List<Node<T>> orderedNodes = graph.getTopologicalOrder();
+    return orderedNodes.stream().map(node -> node.getLabel())
+            .collect(Collectors.toList());
   }
 
   /** A class to store a dependency with some information. */

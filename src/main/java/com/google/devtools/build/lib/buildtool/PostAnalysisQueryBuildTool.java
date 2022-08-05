@@ -39,6 +39,7 @@ import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -183,8 +184,12 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
     if (result.isEmpty()) {
       env.getReporter().handle(Event.info("Empty query results"));
     }
+
+    Set<T> callbackResults = aggregateResultsCallback.getResult();
+    List<T> orderedCallbackResults = postAnalysisQueryEnvironment.orderResults(callbackResults);
+
     callback.start();
-    callback.process(aggregateResultsCallback.getResult());
+    callback.process(orderedCallbackResults);
     callback.close(/*failFast=*/ !result.getSuccess());
 
     queryRuntimeHelper.afterQueryOutputIsWritten();

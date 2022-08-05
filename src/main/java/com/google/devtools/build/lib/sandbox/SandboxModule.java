@@ -59,6 +59,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
@@ -77,7 +78,7 @@ public final class SandboxModule extends BlazeModule {
   @Nullable private Path sandboxBase;
 
   /** Instance of the sandboxfs process in use, if enabled. */
-  @Nullable private SandboxfsProcess sandboxfsProcess;
+  @Nullable private Optional<SandboxfsProcess> sandboxfsProcess = Optional<SandboxfsProcess>.empty();
 
   /**
    * Collection of spawn runner instantiated during the executor setup.
@@ -221,7 +222,7 @@ public final class SandboxModule extends BlazeModule {
 
     Path mountPoint = sandboxBase.getRelative("sandboxfs");
 
-    if (sandboxfsProcess != null) {
+    if (sandboxfsProcess.isPresent()) {
       if (options.sandboxDebug) {
         env.getReporter()
             .handle(
@@ -230,8 +231,8 @@ public final class SandboxModule extends BlazeModule {
                         + mountPoint
                         + " by a previous command"));
       }
-      sandboxfsProcess.destroy();
-      sandboxfsProcess = null;
+      sandboxfsProcess.get.destroy();
+      sandboxfsProcess = Optional<SandboxfsProcess>.empty();
     }
     // SpawnExecutionPolicy#getId returns unique base directories for each sandboxed action during
     // the life of a Bazel server instance so we don't need to worry about stale directories from
@@ -249,12 +250,12 @@ public final class SandboxModule extends BlazeModule {
       mountPoint.createDirectory();
       Path logFile = sandboxBase.getRelative("sandboxfs.log");
 
-      if (sandboxfsProcess == null) {
+      if (!sandboxfsProcess.isPresent()) {
         if (options.sandboxDebug) {
           env.getReporter().handle(Event.info("Mounting sandboxfs instance on " + mountPoint));
         }
         try (SilentCloseable c = Profiler.instance().profile("mountSandboxfs")) {
-          sandboxfsProcess = RealSandboxfsProcess.mount(sandboxfsPath, mountPoint, logFile);
+          sandboxfsProcess = Optional.of(RealSandboxfsProcess.mount(sandboxfsPath, mountPoint, logFile));
         } catch (IOException e) {
           if (options.sandboxDebug) {
             env.getReporter()
@@ -540,10 +541,10 @@ public final class SandboxModule extends BlazeModule {
    * --sandbox_debug} flag.
    */
   private void unmountSandboxfs() {
-    if (sandboxfsProcess != null) {
+    if (sandboxfsProcess.isPresent()) {
       if (shouldCleanupSandboxBase) {
-        sandboxfsProcess.destroy();
-        sandboxfsProcess = null;
+        sandboxfsProcess.get.destroy();
+        sandboxfsProcess = Optional<SandboxfsProcess>.empty();
       } else {
         checkNotNull(env, "env not initialized; was beforeCommand called?");
         env.getReporter()
@@ -554,9 +555,9 @@ public final class SandboxModule extends BlazeModule {
 
   /** Silently tries to unmount an existing sandboxfs instance, ignoring errors. */
   private void tryUnmountSandboxfsOnShutdown() {
-    if (sandboxfsProcess != null) {
-      sandboxfsProcess.destroy();
-      sandboxfsProcess = null;
+    if (sandboxfsProcess.isPresent()) {
+      sandboxfsProcess.get.destroy();
+      sandboxfsProcess = Optional<SandboxfsProcess>.empty();
     }
   }
 
@@ -622,7 +623,7 @@ public final class SandboxModule extends BlazeModule {
       shouldCleanupSandboxBase = false;
 
       checkState(
-          sandboxfsProcess == null,
+          !sandboxfsProcess.isPresent(),
           "sandboxfs instance should have been shut down at this "
               + "point; were the buildComplete/buildInterrupted events sent?");
 

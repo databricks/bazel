@@ -1269,4 +1269,26 @@ EOF
   assert_not_equals "${output_before}" "${output_after}"
 }
 
+function test_cquery_ordering() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<'EOF'
+sh_library(name = '0')
+sh_library(name = '1', deps = ['0'])
+sh_library(name = '2', deps = ['1'])
+sh_library(name = '3', deps = ['2'])
+sh_library(name = '4', deps = ['3'])
+sh_library(name = '5', deps = ['4'])
+sh_library(name = '6', deps = ['5'])
+sh_library(name = '7', deps = ['6'])
+sh_library(name = '8', deps = ['7'])
+sh_library(name = '9', deps = ['8'])
+EOF
+
+  bazel cquery "deps(//$pkg:all)" > output 2> "$TEST_log" || fail "Expected success"
+  local -r actual_ordering=`grep -o ":\d" < output | cut -c2-2`
+  local -r expected_ordering=`seq 9 0 | sed "s| |\n|g"`
+  assert_equals "${expected_ordering}" "${actual_ordering}"
+}
+
 run_suite "${PRODUCT_NAME} configured query tests"

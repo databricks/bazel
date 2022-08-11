@@ -1283,11 +1283,12 @@ sh_library(name = '6', deps = ['5'])
 sh_library(name = '7', deps = ['6'])
 sh_library(name = '8', deps = ['7'])
 sh_library(name = '9', deps = ['8'])
+sh_library(name = '10', deps = ['9'])
 EOF
 
-  bazel cquery "deps(//$pkg:all)" > output 2> "$TEST_log" || fail "Expected success"
-  local -r actual_ordering=`grep -o ":\d" < output | cut -c2-2`
-  local -r expected_ordering=`seq 9 0 | sed "s| |\n|g"`
+  bazel cquery --topological_sort "deps(//$pkg:all)" > output 2> "$TEST_log" || fail "Expected success"
+  local -r actual_ordering=`egrep -o ":\d+" < output | cut -c2-`
+  local -r expected_ordering=`seq 10 0 | sed "s| |\n|g"`
   assert_equals "${expected_ordering}" "${actual_ordering}"
 }
 

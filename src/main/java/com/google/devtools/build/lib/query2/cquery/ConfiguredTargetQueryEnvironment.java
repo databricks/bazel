@@ -31,8 +31,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.graph.Digraph;
-import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
@@ -65,7 +63,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -533,29 +530,7 @@ public class ConfiguredTargetQueryEnvironment
   }
 
   @Override
-  public List<KeyedConfiguredTarget> orderResults(Set<KeyedConfiguredTarget> resultList)
-      throws InterruptedException {
-
-    if (cqueryOptions.topologicalSort) {
-      Digraph<KeyedConfiguredTarget> graph = new Digraph<>();
-      ImmutableSet<KeyedConfiguredTarget> resultSet = ImmutableSet.copyOf(resultList);
-
-      for (KeyedConfiguredTarget result : resultList) {
-        Node<KeyedConfiguredTarget> node = graph.createNode(result);
-
-        for (KeyedConfiguredTarget dep : getFwdDeps(ImmutableList.of(result))) {
-          if (resultSet.contains(dep)) {
-            Node<KeyedConfiguredTarget> depNode = graph.createNode(dep);
-            graph.addEdge(node, depNode);
-          }
-        }
-      }
-
-      List<Node<KeyedConfiguredTarget>> orderedNodes = graph.getTopologicalOrder();
-      return orderedNodes.stream().map(node -> node.getLabel())
-              .collect(Collectors.toList());
-    } else {
-      return new ArrayList<KeyedConfiguredTarget>(resultList);
-    }
+  public boolean shouldOrderResults() {
+    return cqueryOptions.topologicalSort;
   }
 }

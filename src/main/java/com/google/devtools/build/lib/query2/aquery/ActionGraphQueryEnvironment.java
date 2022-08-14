@@ -381,4 +381,9 @@ public class ActionGraphQueryEnvironment
   public void setActionFilters(AqueryActionFilter actionFilters) {
     this.actionFilters = actionFilters;
   }
+
+  @Override
+  public boolean shouldOrderResults() {
+    return false;
+  }
 }

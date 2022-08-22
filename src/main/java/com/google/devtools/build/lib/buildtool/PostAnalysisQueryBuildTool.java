@@ -13,10 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
@@ -186,8 +189,10 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
 
     Iterable<T> callbackResults = aggregateResultsCallback.getResult();
 
-    if (postAnalysisQueryEnvironment.shouldOrderResults()) {
-      callbackResults = postAnalysisQueryEnvironment.orderResults(callbackResults);
+    try (SilentCloseable c = Profiler.instance().profile("postProcessAnalysisResult")) {
+      if (postAnalysisQueryEnvironment.shouldOrderResults()) {
+        callbackResults = postAnalysisQueryEnvironment.orderResults(callbackResults);
+      }
     }
 
     callback.start();

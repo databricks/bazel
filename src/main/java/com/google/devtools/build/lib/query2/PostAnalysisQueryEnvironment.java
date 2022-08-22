@@ -80,7 +80,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -637,25 +636,25 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
 
   public abstract boolean shouldOrderResults();
 
-  public List<T> orderResults(Iterable<T> resultList)
+  public Iterable<T> orderResults(Iterable<T> resultList)
       throws InterruptedException {
-
     Digraph<T> graph = new Digraph<>();
-    ImmutableSet<T> resultSet = ImmutableSet.copyOf(resultList);
 
+    // First pass: create nodes for dependency Digraph
     for (T result : resultList) {
       Node<T> node = graph.createNode(result);
+    }
 
+    // Second pass: create edges between nodes
+    for (T result : resultList) {
       for (T dep : getFwdDeps(ImmutableList.of(result))) {
-        if (resultSet.contains(dep)) {
+        if (graph.getNodeMaybe(dep)) {
           Node<T> depNode = graph.createNode(dep);
           graph.addEdge(node, depNode);
         }
       }
     }
 
-    List<Node<T>> orderedNodes = graph.getTopologicalOrder();
-    return orderedNodes.stream().map(node -> node.getLabel())
-            .collect(Collectors.toList());
+    return Iterables.transform(graph.getTopologicalOrder(), Node::getLabel);
   }
 }

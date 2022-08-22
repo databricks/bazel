@@ -648,9 +648,11 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     // Second pass: create edges between nodes
     for (T result : resultList) {
       for (T dep : getFwdDeps(ImmutableList.of(result))) {
-        if (graph.getNodeMaybe(dep)) {
-          Node<T> depNode = graph.createNode(dep);
-          graph.addEdge(node, depNode);
+        if (graph.getNodeMaybe(dep) != null) {
+          graph.addEdge(
+            graph.getNode(result),
+            graph.createNode(dep)
+          );
         }
       }
     }

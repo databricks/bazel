@@ -1306,7 +1306,6 @@ EOF
 function test_cquery_auto_ordering() {
   local -r pkg=$FUNCNAME
   write_parallel_targets $pkg
-  bazel query "deps(//$pkg:all)"
   bazel cquery "deps(//$pkg:all)" > output 2> "$TEST_log" || fail "Expected success"
   local -r actual_ordering=`egrep -o ":\d+" < output | cut -c2-`
   local -r expected_ordering=`seq 10 0 | sort -r | sed "s| |\n|g"`

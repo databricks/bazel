@@ -190,9 +190,7 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
     Iterable<T> callbackResults = aggregateResultsCallback.getResult();
 
     try (SilentCloseable c = Profiler.instance().profile("postProcessAnalysisResult")) {
-      if (postAnalysisQueryEnvironment.shouldOrderResults()) {
-        callbackResults = postAnalysisQueryEnvironment.orderResults(callbackResults);
-      }
+      callbackResults = postAnalysisQueryEnvironment.orderResults(callbackResults);
     }
 
     callback.start();

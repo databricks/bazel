@@ -44,6 +44,8 @@ import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
+import com.google.devtools.build.lib.query2.common.CommonQueryOptions.OrderOutput;
 import com.google.devtools.build.lib.query2.engine.KeyExtractor;
 import com.google.devtools.build.lib.query2.engine.MinDepthUniquifier;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
@@ -634,10 +636,18 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     }
   }
 
-  public abstract boolean shouldOrderResults();
+  protected abstract OrderOutput getOrderOutput();
+
+  protected abstract Comparator<T> getFullOrderingComparator();
 
   public Iterable<T> orderResults(Iterable<T> resultList)
       throws InterruptedException {
+    OrderOutput orderOutput = this.getOrderOutput();
+
+    if (orderOutput == OrderOutput.NO) {
+      return resultList;
+    }
+
     Digraph<T> graph = new Digraph<>();
 
     // First pass: create nodes for dependency Digraph
@@ -657,6 +667,11 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       }
     }
 
-    return Iterables.transform(graph.getTopologicalOrder(), Node::getLabel);
+    return Iterables.transform(
+      orderOutput == OrderOutput.DEPS
+        ? graph.getTopologicalOrder()
+        : graph.getTopologicalOrder(this.getFullOrderingComparator()),
+      Node::getLabel
+    );
   }
 }

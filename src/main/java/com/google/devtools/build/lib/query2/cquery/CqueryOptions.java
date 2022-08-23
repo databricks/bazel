@@ -107,12 +107,4 @@ public class CqueryOptions extends CommonQueryOptions {
               + " error to specify both --starlark:expr and --starlark:file. See help for"
               + " --output=starlark for additional detail.")
   public String file;
-
-  @Option(
-      name = "topological_sort",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.QUERY,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "If enabled, sort the results in topological order.")
-  public boolean topologicalSort;
 }

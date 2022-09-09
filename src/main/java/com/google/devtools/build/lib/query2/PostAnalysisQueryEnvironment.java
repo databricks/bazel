@@ -638,8 +638,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
 
   protected abstract Comparator<T> getFullOrderingComparator();
 
-  public Iterable<T> orderResults(Iterable<T> resultList)
-          throws InterruptedException {
+  public Iterable<T> orderResults(Iterable<T> resultList) throws InterruptedException {
     OrderOutput orderOutput = this.getOrderOutput();
 
     // No-op if order_output=no
@@ -664,18 +663,18 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       for (T dep : getFwdDeps(ImmutableList.of(result))) {
         if (graph.getNodeMaybe(dep) != null) {
           graph.addEdge(
-                  graph.getNode(result),
-                  graph.createNode(dep)
+              graph.getNode(result),
+              graph.createNode(dep)
           );
         }
       }
     }
 
     return Iterables.transform(
-            orderOutput == OrderOutput.DEPS
-                    ? graph.getTopologicalOrder()
-                    : graph.getTopologicalOrder(this.getFullOrderingComparator()),
-            Node::getLabel
+        orderOutput == OrderOutput.DEPS
+            ? graph.getTopologicalOrder()
+            : graph.getTopologicalOrder(this.getFullOrderingComparator()),
+        Node::getLabel
     );
   }
 }

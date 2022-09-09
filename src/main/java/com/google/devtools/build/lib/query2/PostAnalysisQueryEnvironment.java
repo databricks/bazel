@@ -642,8 +642,14 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
           throws InterruptedException {
     OrderOutput orderOutput = this.getOrderOutput();
 
+    // No-op if order_output=no
     if (orderOutput == OrderOutput.NO) {
       return resultList;
+    }
+
+    // Behavior of order_output=auto depends on the output format
+    if (orderOutput == OrderOutput.AUTO) {
+      orderOutput = this.getOutputFormat().endsWith("proto") ? OrderOutput.DEPS : OrderOutput.FULL;
     }
 
     Digraph<T> graph = new Digraph<>();

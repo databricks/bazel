@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
+import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -428,6 +429,10 @@ public final class RemoteModule extends BlazeModule {
     }
 
     if (enableRemoteDownloader) {
+      Downloader fallbackDownloader = null;
+      if (remoteOptions.remoteDownloaderLocalFallback) {
+        fallbackDownloader = new HttpDownloader();
+      }
       remoteDownloaderSupplier.set(
           new GrpcRemoteDownloader(
               downloaderChannel.retain(),
@@ -435,7 +440,8 @@ public final class RemoteModule extends BlazeModule {
               retrier,
               repoContext,
               cacheClient,
-              remoteOptions));
+              remoteOptions,
+              fallbackDownloader));
       downloaderChannel.release();
     }
   }

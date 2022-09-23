@@ -26,6 +26,7 @@ import com.google.common.base.Strings;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HashOutputStream;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.ReferenceCountedChannel;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
@@ -50,6 +51,7 @@ import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.annotation.Nullable;
 
 /**
  * A Downloader implementation that uses Bazel's Remote Execution APIs to delegate downloads of
@@ -67,6 +69,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   private final RemoteRetrier retrier;
   private final RemoteCacheClient cacheClient;
   private final RemoteOptions options;
+  private final boolean verboseFailures;
+  @Nullable private final Downloader fallbackDownloader;
 
   private final AtomicBoolean closed = new AtomicBoolean();
 
@@ -84,7 +88,9 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       Optional<CallCredentials> credentials,
       RemoteRetrier retrier,
       RemoteCacheClient cacheClient,
-      RemoteOptions options) {
+      RemoteOptions options,
+      boolean verboseFailures,
+      @Nullable Downloader fallbackDownloader) {
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
     this.channel = channel;
@@ -92,6 +98,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     this.retrier = retrier;
     this.cacheClient = cacheClient;
     this.options = options;
+    this.verboseFailures = verboseFailures;
+    this.fallbackDownloader = fallbackDownloader;
   }
 
   @Override
@@ -139,8 +147,18 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
             }
             return null;
           });
-    } catch (StatusRuntimeException e) {
-      throw new IOException(e);
+
+    } catch (StatusRuntimeException | IOException e) {
+      if (fallbackDownloader == null) {
+        if (e instanceof StatusRuntimeException) {
+          throw new IOException(e);
+        }
+        throw e;
+      }
+      eventHandler.handle(
+          Event.warn("Remote Cache: " + Utils.grpcAwareErrorMessage(e, verboseFailures)));
+      fallbackDownloader.download(
+          urls, authHeaders, checksum, canonicalId, destination, eventHandler, clientEnv, type);
     }
   }
 

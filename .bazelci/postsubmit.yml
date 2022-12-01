@@ -222,6 +222,8 @@ tasks:
       - "-//src/test/shell/bazel:bazel_determinism_test"
       # https://github.com/bazelbuild/bazel/issues/17457
       - "-//src/test/shell/bazel:jdeps_test"
+      # MacOS does not have cgroups so it can't support hardened sandbox
+      - "-//src/test/shell/integration:bazel_hardened_sandboxed_worker_test"
     include_json_profile:
       - build
       - test

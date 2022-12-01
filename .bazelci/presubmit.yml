@@ -216,7 +216,7 @@ tasks:
       # https://github.com/bazelbuild/bazel/issues/17457
       - "-//src/test/shell/bazel:jdeps_test"
       - "-//scripts/docs:rewriter_test"
-      
+      - "-//src/test/shell/integration:bazel_hardened_sandboxed_worker_test"
   windows:
     shards: 4
     batch_commands:

@@ -27,6 +27,7 @@ java_library(
     ],
     deps = [
         ":network_metrics_collector",
+        "//src/main/java/com/google/devtools/build/lib/actions:resource_estimator",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",

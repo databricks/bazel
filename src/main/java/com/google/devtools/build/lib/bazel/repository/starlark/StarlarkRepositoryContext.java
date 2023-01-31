@@ -1032,6 +1032,11 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
 
   private Optional<Checksum> validateChecksum(String sha256, String integrity, List<URL> urls)
       throws RepositoryFunctionException, EvalException {
+    if (urls.size() == 1 && urls.get(0).getHost().contains("github.com")) {
+      // If the URL from Github and we don't have any other URLs from which to pull, we don't need
+      // to validate the checksum
+      return Optional.absent();
+    }
     if (!sha256.isEmpty()) {
       if (!integrity.isEmpty()) {
         throw Starlark.errorf("Expected either 'sha256' or 'integrity', but not both");

@@ -243,13 +243,13 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             .setUseDebugMode(sandboxOptions.sandboxDebug)
             .setKillDelay(timeoutKillDelay);
 
-    if (sandboxOptions.memoryLimit > 0) {
+    if (sandboxOptions.memoryLimitMb > 0) {
       CgroupsInfo cgroupsInfo = CgroupsInfo.getInstance();
       // We put the sandbox inside a unique subdirectory using the context's ID. This ID is
       // unique per spawn run by this spawn runner.
       cgroupsDir =
           cgroupsInfo.createMemoryLimitCgroupDir(
-              "sandbox_" + context.getId(), sandboxOptions.memoryLimit);
+              "sandbox_" + context.getId(), sandboxOptions.memoryLimitMb);
       commandLineBuilder.setCgroupsDir(cgroupsDir);
     }
 
@@ -323,7 +323,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     ImmutableSet.Builder<Path> writableDirs = ImmutableSet.builder();
     writableDirs.addAll(super.getWritableDirs(sandboxExecRoot, env));
 
-    if (getSandboxOptions().memoryLimit > 0) {
+    if (getSandboxOptions().memoryLimitMb > 0) {
       CgroupsInfo cgroupsInfo = CgroupsInfo.getInstance();
       writableDirs.add(fileSystem.getPath(cgroupsInfo.getMountPoint().getAbsolutePath()));
     }

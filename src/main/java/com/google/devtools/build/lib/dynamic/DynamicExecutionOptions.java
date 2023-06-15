@@ -178,7 +178,7 @@ public class DynamicExecutionOptions extends OptionsBase {
 
   @Option(
       name = "experimental_dynamic_ignore_local_signals",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       converter = SignalListConverter.class,
       effectTags = {OptionEffectTag.EXECUTION},
       defaultValue = "null",

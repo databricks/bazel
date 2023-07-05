@@ -153,6 +153,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .addToolchainTypes(
             CppRuleClasses.ccToolchainTypeRequirement(ccToolchainType),
             javaToolchainTypeRequirement)
+        .useToolchainTransition(true)
         .add(
             attr("$grep_includes", LABEL)
                 .cfg(ExecutionTransitionFactory.create())

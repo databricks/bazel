@@ -50,6 +50,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
   private final ConfigurationTransition hostTransition;
   private final ImmutableSet<String> hostFragments;
   private final ImmutableSet<ToolchainTypeRequirement> toolchainTypes;
+  private final boolean useToolchainTransition;
   private final boolean applyToGeneratingRules;
   private final ImmutableSet<Label> execCompatibleWith;
   private final ImmutableMap<String, ExecGroup> execGroups;
@@ -78,7 +79,8 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
       ImmutableSet<ToolchainTypeRequirement> toolchainTypes,
       boolean applyToGeneratingRules,
       ImmutableSet<Label> execCompatibleWith,
-      ImmutableMap<String, ExecGroup> execGroups) {
+      ImmutableMap<String, ExecGroup> execGroups,
+      boolean useToolchainTransition) {
     this.implementation = implementation;
     this.attributeAspects = attributeAspects;
     this.attributes = attributes;
@@ -91,6 +93,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     this.hostTransition = hostTransition;
     this.hostFragments = hostFragments;
     this.toolchainTypes = toolchainTypes;
+    this.useToolchainTransition = useToolchainTransition;
     this.applyToGeneratingRules = applyToGeneratingRules;
     this.execCompatibleWith = execCompatibleWith;
     this.execGroups = execGroups;
@@ -201,6 +204,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     builder.requiresConfigurationFragmentsByStarlarkBuiltinName(fragments);
     builder.requiresConfigurationFragmentsByStarlarkBuiltinName(hostTransition, hostFragments);
     builder.addToolchainTypes(toolchainTypes);
+    builder.useToolchainTransition(useToolchainTransition);
     builder.applyToGeneratingRules(applyToGeneratingRules);
     ImmutableSet.Builder<AspectClass> requiredAspectsClasses = ImmutableSet.builder();
     for (StarlarkAspect requiredAspect : requiredAspects) {
@@ -371,6 +375,10 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     return toolchainTypes;
   }
 
+  public boolean useToolchainTransition() {
+    return useToolchainTransition;
+  }
+
   @Override
   public void attachToAspectsList(String baseAspectName, AspectsListBuilder aspectsList)
       throws EvalException {
@@ -416,6 +424,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
         && Objects.equals(hostTransition, that.hostTransition)
         && Objects.equals(hostFragments, that.hostFragments)
         && Objects.equals(toolchainTypes, that.toolchainTypes)
+        && useToolchainTransition == that.useToolchainTransition
         && Objects.equals(aspectClass, that.aspectClass);
   }
 
@@ -434,6 +443,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
         hostTransition,
         hostFragments,
         toolchainTypes,
+        useToolchainTransition,
         aspectClass);
   }
 }

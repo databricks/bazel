@@ -228,11 +228,11 @@ public class PlatformOptions extends FragmentOptions {
   @Option(
       name = "incompatible_override_toolchain_transition",
       defaultValue = "true",
-      deprecationWarning = "This is now always set, please remove this flag.",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "Deprecated, this is no longer in use and should be removed.")
+      help =
+          "If set to true, all rules will use the toolchain transition for toolchain dependencies.")
   public boolean overrideToolchainTransition;
 
   @Override

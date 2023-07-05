@@ -69,7 +69,6 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
         moduleContext.repoMapping());
   }
 
-  // TODO(b/237422931): move into testing module
   @Override
   public ConfigurationTransitionApi analysisTestTransition(
       Dict<?, ?> changedSettings, // <String, String> expected

@@ -171,6 +171,17 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
   }
 
   @Override
+  public void analysisTest(
+      String name,
+      StarlarkFunction implementation,
+      Object attrs,
+      Sequence<?> fragments,
+      Sequence<?> toolchains,
+      Object argsValue,
+      StarlarkThread thread)
+      throws EvalException, InterruptedException {}
+
+  @Override
   public Label label(Object input, StarlarkThread thread) throws EvalException {
     if (input instanceof Label) {
       return (Label) input;

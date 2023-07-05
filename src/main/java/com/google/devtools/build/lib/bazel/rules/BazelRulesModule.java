@@ -234,15 +234,6 @@ public final class BazelRulesModule extends BlazeModule {
     public boolean experimentalMultiThreadedDigest;
 
     @Option(
-        name = "incompatible_override_toolchain_transition",
-        defaultValue = "true",
-        deprecationWarning = "This is now always set, please remove this flag.",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = OptionEffectTag.UNKNOWN,
-        help = "Deprecated, this is no longer in use and should be removed.")
-    public boolean overrideToolchainTransition;
-
-    @Option(
         name = "experimental_dynamic_execution_cpu_limited",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {

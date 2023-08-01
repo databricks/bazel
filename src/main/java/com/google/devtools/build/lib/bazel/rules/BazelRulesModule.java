@@ -68,14 +68,6 @@ public final class BazelRulesModule extends BlazeModule {
     public TriState useGraphlessQuery;
 
     @Option(
-        name = "use_top_level_targets_for_symlinks",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-        help = "Deprecated. No-op.")
-    public boolean useTopLevelTargetsForSymlinks;
-
-    @Option(
         name = "experimental_skyframe_prepare_analysis",
         deprecationWarning = "This flag is a no-op and will be deleted in a future release.",
         defaultValue = "false",

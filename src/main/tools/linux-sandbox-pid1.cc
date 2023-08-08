@@ -343,7 +343,7 @@ static bool ShouldBeWritable(const std::string &mnt_dir) {
     return true;
   }
 
-  if (mnt_dir == "/sys/fs/cgroup" && !opt.cgroups_dir.empty()) {
+  if (mnt_dir == "/sys/fs/cgroup" && !opt.cgroups_dirs.empty()) {
     return true;
   }
 
@@ -563,9 +563,12 @@ static int WaitForChild() {
 }
 
 static void AddProcessToCgroup() {
-  if (!opt.cgroups_dir.empty()) {
-    PRINT_DEBUG("Adding process to cgroups dir %s", opt.cgroups_dir.c_str());
-    WriteFile(opt.cgroups_dir + "/cgroup.procs", "1");
+  for(const std::string &cgroups_dir : opt.cgroups_dirs) {
+    PRINT_DEBUG("Adding process to cgroup dir %s", cgroups_dir.c_str());
+    // Writing the value 0 to a cgroup.procs file causes the writing
+    // process to be moved to the corresponding cgroup.
+    // Ref. https://man7.org/linux/man-pages/man7/cgroups.7.html
+    WriteFile(cgroups_dir + "/cgroup.procs", "0");
   }
 }
 

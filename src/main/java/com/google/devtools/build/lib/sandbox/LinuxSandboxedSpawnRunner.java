@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.BindMount;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
+import com.google.devtools.build.lib.sandbox.cgroups.VirtualCGroup;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.OS;
@@ -140,7 +141,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final TreeDeleter treeDeleter;
   private final Reporter reporter;
   private final ImmutableList<Root> packageRoots;
-  private String cgroupsDir;
 
   /**
    * Creates a sandboxed spawn runner that uses the {@code linux-sandbox} tool.
@@ -238,6 +238,33 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     }
 
     return true;
+  }
+
+  private VirtualCGroup getCgroup(Spawn spawn, SpawnExecutionContext context) throws ExecException, IOException {
+    SandboxOptions sandboxOptions = getSandboxOptions();
+
+    VirtualCGroup cgroup = null;
+    // We put the sandbox inside a unique subdirectory using the context's ID. This ID is
+    // unique per spawn run by this spawn runner.
+    String name = "sandbox_" + context.getId() + ".scope";
+    long memoryLimit = sandboxOptions.memoryLimitMb * 1024L * 1024L;
+    float cpuLimit = sandboxOptions.cpuLimit;
+
+    if (memoryLimit > 0) {
+      if (cgroup == null) {
+        cgroup = VirtualCGroup.getInstance(this.reporter).child(name);
+      }
+      cgroup.memory().setMaxBytes(memoryLimit);
+    }
+
+    if (cpuLimit > 0) {
+      if (cgroup == null) {
+        cgroup = VirtualCGroup.getInstance(this.reporter).child(name);
+      }
+      cgroup.cpu().setCpus(cpuLimit);
+    }
+
+    return cgroup;
   }
 
   @Override
@@ -340,14 +367,12 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       commandLineBuilder.setSandboxDebugPath(sandboxDebugPath.getPathString());
     }
 
-    if (sandboxOptions.memoryLimitMb > 0) {
-      CgroupsInfo cgroupsInfo = CgroupsInfo.getInstance();
-      // We put the sandbox inside a unique subdirectory using the context's ID. This ID is
-      // unique per spawn run by this spawn runner.
-      cgroupsDir =
-          cgroupsInfo.createMemoryLimitCgroupDir(
-              "sandbox_" + context.getId(), sandboxOptions.memoryLimitMb);
-      commandLineBuilder.setCgroupsDir(cgroupsDir);
+    VirtualCGroup cgroup = getCgroup(spawn, context);
+    if (cgroup != null) {
+      commandLineBuilder.setCgroupsDirs(
+          cgroup.paths().stream()
+            .map(p -> fileSystem.getPath(p.toString()))
+            .collect(ImmutableSet.toImmutableSet()));
     }
 
     if (useHermeticTmp) {
@@ -421,10 +446,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       throws IOException {
     ImmutableSet.Builder<Path> writableDirs = ImmutableSet.builder();
     writableDirs.addAll(super.getWritableDirs(sandboxExecRoot, withinSandboxExecRoot, env));
-    if (getSandboxOptions().memoryLimitMb > 0) {
-      CgroupsInfo cgroupsInfo = CgroupsInfo.getInstance();
-      writableDirs.add(fileSystem.getPath(cgroupsInfo.getMountPoint().getAbsolutePath()));
-    }
     FileSystem fs = sandboxExecRoot.getFileSystem();
     writableDirs.add(fs.getPath("/dev/shm").resolveSymbolicLinks());
     writableDirs.add(fs.getPath("/tmp"));
@@ -550,9 +571,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   @Override
   public void cleanupSandboxBase(Path sandboxBase, TreeDeleter treeDeleter) throws IOException {
-    if (cgroupsDir != null) {
-      new File(cgroupsDir).delete();
-    }
+    VirtualCGroup.deleteInstance();
     // Delete the inaccessible files synchronously, bypassing the treeDeleter. They are only a
     // couple of files that can be deleted fast, and ensuring they are gone at the end of every
     // build avoids annoying permission denied errors if the user happens to run "rm -rf" on the

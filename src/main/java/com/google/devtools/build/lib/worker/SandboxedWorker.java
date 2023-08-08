@@ -22,13 +22,14 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.sandbox.CgroupsInfo;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.BindMount;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxUtil;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
+import com.google.devtools.build.lib.sandbox.cgroups.VirtualCGroup;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -67,6 +68,8 @@ final class SandboxedWorker extends SingleplexWorker {
 
     abstract ImmutableList<Entry<String, String>> additionalMountPaths();
 
+    abstract EventHandler reporter();
+
     public static WorkerSandboxOptions create(
         Path sandboxBinary,
         boolean fakeHostname,
@@ -76,7 +79,8 @@ final class SandboxedWorker extends SingleplexWorker {
         ImmutableList<String> writablePaths,
         int memoryLimit,
         ImmutableSet<Path> inaccessiblePaths,
-        ImmutableList<Entry<String, String>> sandboxAdditionalMounts) {
+        ImmutableList<Entry<String, String>> sandboxAdditionalMounts,
+        EventHandler reporter) {
       return new AutoValue_SandboxedWorker_WorkerSandboxOptions(
           fakeHostname,
           fakeUsername,
@@ -86,7 +90,8 @@ final class SandboxedWorker extends SingleplexWorker {
           sandboxBinary,
           memoryLimit,
           inaccessiblePaths,
-          sandboxAdditionalMounts);
+          sandboxAdditionalMounts,
+          reporter);
     }
   }
 
@@ -190,12 +195,13 @@ final class SandboxedWorker extends SingleplexWorker {
               .setCreateNetworkNamespace(NETNS);
 
       if (hardenedSandboxOptions.memoryLimit() > 0) {
-        CgroupsInfo cgroupsInfo = CgroupsInfo.getInstance();
-        // We put the sandbox inside a unique subdirectory using the worker's ID.
-        cgroupsDir =
-            cgroupsInfo.createMemoryLimitCgroupDir(
-                "worker_sandbox_" + workerId, hardenedSandboxOptions.memoryLimit());
-        commandLineBuilder.setCgroupsDir(cgroupsDir);
+        String name = "worker_sandbox_" + workerId;
+        VirtualCGroup cgroup =
+            VirtualCGroup.getInstance(hardenedSandboxOptions.reporter()).child(name);
+        cgroup.memory().setMaxBytes(hardenedSandboxOptions.memoryLimit() * 1024L * 1024L);
+        ImmutableSet.Builder<Path> paths = ImmutableSet.builder();
+        cgroup.paths().forEach(p -> paths.add(workDir.getFileSystem().getPath(p.toString())));
+        commandLineBuilder.setCgroupsDirs(paths.build());
       }
 
       if (this.hardenedSandboxOptions.fakeUsername()) {

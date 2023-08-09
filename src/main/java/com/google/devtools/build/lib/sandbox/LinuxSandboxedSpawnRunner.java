@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox.Code;
 import com.google.devtools.build.lib.sandbox.cgroups.VirtualCGroup;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.OS;
@@ -174,25 +175,79 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   }
 
   private VirtualCGroup getCgroup(Spawn spawn, SpawnExecutionContext context) throws ExecException, IOException {
+    if (spawn.getExecutionInfo().get(ExecutionRequirements.NO_SUPPORTS_CGROUPS) != null) {
+      return null;
+    }
     SandboxOptions sandboxOptions = getSandboxOptions();
 
     VirtualCGroup cgroup = null;
-    // We put the sandbox inside a unique subdirectory using the context's ID. This ID is
-    // unique per spawn run by this spawn runner.
-    String name = "sandbox_" + context.getId() + ".scope";
     long memoryLimit = sandboxOptions.memoryLimitMb * 1024L * 1024L;
     float cpuLimit = sandboxOptions.cpuLimit;
 
+    if (sandboxOptions.executionInfoLimit) {
+      ExecutionRequirements.ParseableRequirement requirement = ExecutionRequirements.RESOURCES;
+      for (String tag : spawn.getExecutionInfo().keySet()) {
+        try {
+          requirement = ExecutionRequirements.RESOURCES;
+          String name = null;
+          Float value = null;
+
+          String extras = requirement.parseIfMatches(tag);
+          if (extras != null) {
+            int index = extras.indexOf(":");
+            name = extras.substring(0, index);
+            value = Float.parseFloat(extras.substring(index + 1));
+          } else {
+            requirement = ExecutionRequirements.CPU;
+            String cpus = requirement.parseIfMatches(tag);
+            if (cpus != null) {
+              name = "cpu";
+              value = Float.parseFloat(cpus);
+            }
+          }
+          if (name == null) {
+            continue;
+          }
+          switch (name) {
+            case "memory":
+              memoryLimit = Math.round(value * 1024.0 * 1024.0);
+              break;
+            case "cpu":
+              cpuLimit = value;
+              break;
+          }
+        } catch (ExecutionRequirements.ParseableRequirement.ValidationException e) {
+          String message =
+              String.format(
+                  "%s has a '%s' tag, but its value '%s' didn't pass validation: %s",
+                  spawn.getTargetLabel(),
+                  requirement.userFriendlyName(),
+                  e.getTagValue(),
+                  e.getMessage());
+          FailureDetails.Spawn.Code code = FailureDetails.Spawn.Code.COMMAND_LINE_EXPANSION_FAILURE;
+          FailureDetails.FailureDetail details = FailureDetails.FailureDetail
+              .newBuilder()
+              .setMessage(message)
+              .setSpawn(FailureDetails.Spawn.newBuilder().setCode(code))
+              .build();
+          throw new UserExecException(e, details);
+        }
+      }
+    }
+
+    // We put the sandbox inside a unique subdirectory using the context's ID. This ID is
+    // unique per spawn run by this spawn runner.
+    String scope = "sandbox_" + context.getId() + ".scope";
     if (memoryLimit > 0) {
       if (cgroup == null) {
-        cgroup = VirtualCGroup.getInstance(this.reporter).child(name);
+        cgroup = VirtualCGroup.getInstance(this.reporter).child(scope);
       }
       cgroup.memory().setMaxBytes(memoryLimit);
     }
 
     if (cpuLimit > 0) {
       if (cgroup == null) {
-        cgroup = VirtualCGroup.getInstance(this.reporter).child(name);
+        cgroup = VirtualCGroup.getInstance(this.reporter).child(scope);
       }
       cgroup.cpu().setCpus(cpuLimit);
     }

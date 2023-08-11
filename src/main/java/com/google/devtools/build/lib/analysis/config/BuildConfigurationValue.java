@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.OutputDirectories.InvalidMnemonicException;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
@@ -36,6 +37,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.BuildConfigurationApi;
@@ -901,4 +903,16 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
   public ImmutableSet<String> getReservedActionMnemonics() {
     return reservedActionMnemonics;
   }
+
+  public Map<String, Float> getTestResources(TestSize size) {
+    if (!buildOptions.contains(TestConfiguration.TestOptions.class)) {
+      return ImmutableMap.of();
+    }
+    return buildOptions
+        .get(TestConfiguration.TestOptions.class)
+        .testResources
+        .stream()
+        .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, e -> e.getValue().get(size)));
+  }
+
 }

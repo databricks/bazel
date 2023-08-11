@@ -1651,6 +1651,7 @@ java_library(
         ":config/invalid_configuration_exception",
         ":config/run_under",
         ":platform_options",
+        ":test/test_configuration",
         "//src/main/java/com/google/devtools/build/lib/actions:action_environment",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:build_configuration_event",

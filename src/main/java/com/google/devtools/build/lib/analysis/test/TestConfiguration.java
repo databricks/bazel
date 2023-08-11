@@ -14,10 +14,13 @@
 
 package com.google.devtools.build.lib.analysis.test;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.OptionsDiffPredicate;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
@@ -28,8 +31,10 @@ import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.test.CoverageConfiguration.CoverageOptions;
 import com.google.devtools.build.lib.analysis.test.TestShardingStrategy.ShardingStrategyConverter;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.util.RegexFilter;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -39,7 +44,9 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
@@ -83,6 +90,23 @@ public class TestConfiguration extends Fragment {
                 + "short, moderate, long and eternal (in that order). In either form, a value of "
                 + "-1 tells blaze to use its default timeouts for that category.")
     public Map<TestTimeout, Duration> testTimeout;
+
+    @Option(
+        name = "test_resources",
+        defaultValue = "null",
+        converter = TestResourcesConverter.class,
+        allowMultiple = true,
+        documentationCategory = OptionDocumentationCategory.TESTING,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Override the default resources amount for tests. The expected format is"
+                + " <resource>=<value>. If a single positive float is specified as <value>"
+                + " it will override the default resources for all test sizes. If 4"
+                + " comma-separated flats are specified, they will override the resource"
+                + " amount for small, medium, large, enourmous (in that order)."
+                + " Multiple resources can be separated by colon and multiple usages"
+                + " are accumulated.")
+    public List<Map.Entry<String, Map<TestSize, Float>>> testResources;
 
     @Option(
       name = "test_filter",
@@ -463,6 +487,58 @@ public class TestConfiguration extends Fragment {
     @Override
     public String getTypeDescription() {
       return "a positive integer or test_regex@runs. This flag may be passed more than once";
+    }
+  }
+
+  public static class TestResourcesConverter extends Converter.Contextless<List<Map.Entry<String, Map<TestSize, Float>>>> {
+    @Override
+    public String getTypeDescription() {
+      return "a resource name followed by equal and 1 float or 4 float, e.g memory=10,30,60,100";
+    }
+
+    @Override
+    public List<Map.Entry<String, Map<TestSize, Float>>> convert(String input) throws OptionsParsingException {
+      ImmutableList.Builder<Map.Entry<String, Map<TestSize, Float>>> resources = ImmutableList.builder();
+      Map<String, String> requests;
+      char resourcesSep = ':', valueSep = '=';
+
+      try {
+        requests = Splitter.on(resourcesSep).withKeyValueSeparator(valueSep).split(input);
+      } catch (IllegalArgumentException e) {
+        String message = String.format(
+            "%s. Separate resources from each other with '%c' and resources"
+              + " from their values with '%c', e.g. memory=10,20,50,100:cpu=1",
+            e.getMessage(),
+            resourcesSep,
+            valueSep);
+        throw new OptionsParsingException(message, e);
+      }
+      for (Map.Entry<String, String> request:  requests.entrySet()) {
+        List<Float> values = new ArrayList<>();
+        for (String token: Splitter.on(",").omitEmptyStrings().limit(5).split(request.getValue())) {
+          try {
+            values.add(Float.parseFloat(token));
+          } catch (NumberFormatException e) {
+            throw new OptionsParsingException("'" + token + "' is not a float", e);
+          }
+        }
+        EnumMap<TestSize, Float> amounts = Maps.newEnumMap(TestSize.class);
+        if (values.size() == 1) {
+          amounts.put(TestSize.SMALL, values.get(0));
+          amounts.put(TestSize.MEDIUM, values.get(0));
+          amounts.put(TestSize.LARGE, values.get(0));
+          amounts.put(TestSize.ENORMOUS, values.get(0));
+        } else if (values.size() == 4) {
+          amounts.put(TestSize.SMALL, values.get(0));
+          amounts.put(TestSize.MEDIUM, values.get(1));
+          amounts.put(TestSize.LARGE, values.get(2));
+          amounts.put(TestSize.ENORMOUS, values.get(3));
+        } else {
+          throw new OptionsParsingException("Invalid number of comma-separated entries");
+        }
+        resources.add(Maps.immutableEntry(request.getKey(), amounts));
+      }
+      return resources.build();
     }
   }
 }

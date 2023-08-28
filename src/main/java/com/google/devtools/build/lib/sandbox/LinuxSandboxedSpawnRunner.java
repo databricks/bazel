@@ -183,10 +183,14 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     VirtualCGroup cgroup = null;
     long memoryLimit = sandboxOptions.memoryLimitMb * 1024L * 1024L;
     float cpuLimit = sandboxOptions.cpuLimit;
+    boolean requiresNetwork = false;
 
     if (sandboxOptions.executionInfoLimit) {
       ExecutionRequirements.ParseableRequirement requirement = ExecutionRequirements.RESOURCES;
       for (String tag : spawn.getExecutionInfo().keySet()) {
+        if (tag.equals(ExecutionRequirements.REQUIRES_NETWORK)){
+          requiresNetwork = true;
+        }
         try {
           requirement = ExecutionRequirements.RESOURCES;
           String name = null;
@@ -250,6 +254,12 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         cgroup = VirtualCGroup.getInstance(this.reporter).child(scope);
       }
       cgroup.cpu().setCpus(cpuLimit);
+    }
+    if (!requiresNetwork) {
+      if (cgroup == null) {
+        cgroup = VirtualCGroup.getInstance(this.reporter).child(scope);
+      }
+      cgroup.netCls().setNetCls(1337);
     }
 
     return cgroup;

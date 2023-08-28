@@ -41,4 +41,8 @@ public interface Controller {
         void setCpus(float cpus) throws IOException;
         int getCpus() throws IOException;
     }
+    interface NetCls extends Controller {
+        void setNetCls(int netCls) throws IOException;
+        int getNetCls() throws IOException;
+    }
 }

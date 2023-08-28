@@ -349,6 +349,17 @@ public class SandboxOptions extends OptionsBase {
   public int asyncTreeDeleteIdleThreads;
 
   @Option(
+      name = "sandbox_non_requires_network_cgroup_net_cls",
+      defaultValue = "0",
+      converter = AsyncTreeDeletesConverter.class,
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
+      help =
+          "If set, any target not tagged with requires-network will run its actions "
+              + "inside a sandbox with the given netcls for filtering by iptables firewalls")
+  public int sandboxNonRequiresNetworkCgroupNetCls;
+
+  @Option(
       name = "incompatible_legacy_local_fallback",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,

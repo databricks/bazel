@@ -10,6 +10,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.sandbox.cgroups.v1.LegacyCpu;
 import com.google.devtools.build.lib.sandbox.cgroups.v1.LegacyMemory;
+import com.google.devtools.build.lib.sandbox.cgroups.v1.LegacyNetCls;
 import com.google.devtools.build.lib.sandbox.cgroups.v2.UnifiedCpu;
 import com.google.devtools.build.lib.sandbox.cgroups.v2.UnifiedMemory;
 
@@ -41,6 +42,7 @@ public abstract class VirtualCGroup {
 
     public abstract Controller.Cpu cpu();
     public abstract Controller.Memory memory();
+    public abstract Controller.NetCls netCls();
     public abstract ImmutableSet<Path> paths();
 
     private final Queue<VirtualCGroup> children = new ConcurrentLinkedQueue<>();
@@ -97,6 +99,7 @@ public abstract class VirtualCGroup {
 
         Controller.Memory memory = null;
         Controller.Cpu cpu = null;
+        Controller.NetCls netCls = null;
         ImmutableSet.Builder<Path> paths = ImmutableSet.builder();
 
         for (Mount m: mounts) {
@@ -169,6 +172,11 @@ public abstract class VirtualCGroup {
                             logger.atInfo().log("Found cgroup v1 cpu controller at %s", cgroup);
                             cpu = new LegacyCpu(cgroup);
                             break;
+                        case "netcls":
+                            if (netCls != null) continue;
+                            logger.atInfo().log("Found cgroup v1 netcls controller at %s", cgroup);
+                            netCls = new LegacyNetCls(cgroup);
+                            break;
                     }
                 }
             }
@@ -176,7 +184,7 @@ public abstract class VirtualCGroup {
 
         cpu = cpu != null ? cpu : Controller.getDefault(Controller.Cpu.class);
         memory = memory != null ? memory : Controller.getDefault(Controller.Memory.class);
-        VirtualCGroup vcgroup = new AutoValue_VirtualCGroup(cpu, memory, paths.build());
+        VirtualCGroup vcgroup = new AutoValue_VirtualCGroup(cpu, memory, netCls, paths.build());
         Runtime.getRuntime().addShutdownHook(new Thread(() -> vcgroup.delete()));
         return vcgroup;
     }
@@ -189,6 +197,7 @@ public abstract class VirtualCGroup {
     public VirtualCGroup child(String name) throws IOException {
         Controller.Cpu cpu = Controller.getDefault(Controller.Cpu.class);
         Controller.Memory memory = Controller.getDefault(Controller.Memory.class);
+        Controller.NetCls netCls = Controller.getDefault(Controller.NetCls.class);
         ImmutableSet.Builder<Path> paths = ImmutableSet.builder();
         if (memory() != null && memory().getPath() != null) {
             copyControllersToSubtree(memory().getPath());
@@ -204,7 +213,14 @@ public abstract class VirtualCGroup {
             cpu = cpu().isLegacy() ? new LegacyCpu(cgroup) : new UnifiedCpu(cgroup);
             paths.add(cgroup);
         }
-        VirtualCGroup child = new AutoValue_VirtualCGroup(cpu, memory, paths.build());
+        if (netCls() != null && netCls().getPath() != null) {
+            copyControllersToSubtree(netCls().getPath());
+            Path cgroup = netCls().getPath().resolve(name);
+            cgroup.toFile().mkdirs();
+            netCls = netCls().isLegacy() ? new LegacyNetCls(cgroup) : null;
+            paths.add(cgroup);
+        }
+        VirtualCGroup child = new AutoValue_VirtualCGroup(cpu, memory, netCls, paths.build());
         this.children.add(child);
         return child;
     }

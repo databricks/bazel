@@ -53,7 +53,7 @@ public class LinuxSandboxCommandLineBuilder {
   private boolean enablePseudoterminal = false;
   private boolean useDebugMode = false;
   private boolean sigintSendsSigterm = false;
-  private String cgroupsDir;
+  private Set<Path> cgroupsDirs = ImmutableSet.of();
 
   private LinuxSandboxCommandLineBuilder(Path linuxSandboxPath, List<String> commandArguments) {
     this.linuxSandboxPath = linuxSandboxPath;
@@ -214,8 +214,8 @@ public class LinuxSandboxCommandLineBuilder {
    * this directory, its parent directory, and the cgroup directory for the Bazel process.
    */
   @CanIgnoreReturnValue
-  public LinuxSandboxCommandLineBuilder setCgroupsDir(String cgroupsDir) {
-    this.cgroupsDir = cgroupsDir;
+  public LinuxSandboxCommandLineBuilder setCgroupsDirs(Set<Path> cgroupsDirs) {
+    this.cgroupsDirs = cgroupsDirs;
     return this;
   }
 
@@ -296,8 +296,8 @@ public class LinuxSandboxCommandLineBuilder {
     if (persistentProcess) {
       commandLineBuilder.add("-p");
     }
-    if (cgroupsDir != null) {
-      commandLineBuilder.add("-C", cgroupsDir);
+    for (Path dir: cgroupsDirs) {
+      commandLineBuilder.add("-C", dir.toString());
     }
     commandLineBuilder.add("--");
     commandLineBuilder.addAll(commandArguments);

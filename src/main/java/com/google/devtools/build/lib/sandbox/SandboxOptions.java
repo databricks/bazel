@@ -419,6 +419,18 @@ public class SandboxOptions extends OptionsBase {
               + " Requires cgroups v1 or v2 and permissions for the users to the cgroups dir.")
   public float cpuLimit;
 
+  @Option(
+      name = "experimental_sandbox_execution_info_limit",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "If true, resources declared in the execution info that match a cgroup controller"
+              + " will be used to apply the limits. For example a target that declares"
+              + " cpu:3 and resources:memory:10, will run with at most 3 cpus and 10"
+              + " megabytes of memory.")
+  public boolean executionInfoLimit;
+
   /** Converter for the number of threads used for asynchronous tree deletion. */
   public static final class AsyncTreeDeletesConverter extends ResourceConverter {
     public AsyncTreeDeletesConverter() {

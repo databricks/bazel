@@ -42,6 +42,8 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox.Code;
+import com.google.devtools.build.lib.sandbox.cgroups.VirtualCGroup;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.OS;
@@ -130,7 +132,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final boolean sandboxfsMapSymlinkTargets;
   private final TreeDeleter treeDeleter;
   private final Reporter reporter;
-  private String cgroupsDir;
 
   /**
    * Creates a sandboxed spawn runner that uses the {@code linux-sandbox} tool.
@@ -171,6 +172,87 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.localEnvProvider = new PosixLocalEnvProvider(cmdEnv.getClientEnv());
     this.treeDeleter = treeDeleter;
     this.reporter = cmdEnv.getReporter();
+  }
+
+  private VirtualCGroup getCgroup(Spawn spawn, SpawnExecutionContext context) throws ExecException, IOException {
+    if (spawn.getExecutionInfo().get(ExecutionRequirements.NO_SUPPORTS_CGROUPS) != null) {
+      return null;
+    }
+    SandboxOptions sandboxOptions = getSandboxOptions();
+
+    VirtualCGroup cgroup = null;
+    long memoryLimit = sandboxOptions.memoryLimitMb * 1024L * 1024L;
+    float cpuLimit = sandboxOptions.cpuLimit;
+
+    if (sandboxOptions.executionInfoLimit) {
+      ExecutionRequirements.ParseableRequirement requirement = ExecutionRequirements.RESOURCES;
+      for (String tag : spawn.getExecutionInfo().keySet()) {
+        try {
+          requirement = ExecutionRequirements.RESOURCES;
+          String name = null;
+          Float value = null;
+
+          String extras = requirement.parseIfMatches(tag);
+          if (extras != null) {
+            int index = extras.indexOf(":");
+            name = extras.substring(0, index);
+            value = Float.parseFloat(extras.substring(index + 1));
+          } else {
+            requirement = ExecutionRequirements.CPU;
+            String cpus = requirement.parseIfMatches(tag);
+            if (cpus != null) {
+              name = "cpu";
+              value = Float.parseFloat(cpus);
+            }
+          }
+          if (name == null) {
+            continue;
+          }
+          switch (name) {
+            case "memory":
+              memoryLimit = Math.round(value * 1024.0 * 1024.0);
+              break;
+            case "cpu":
+              cpuLimit = value;
+              break;
+          }
+        } catch (ExecutionRequirements.ParseableRequirement.ValidationException e) {
+          String message =
+              String.format(
+                  "%s has a '%s' tag, but its value '%s' didn't pass validation: %s",
+                  spawn.getTargetLabel(),
+                  requirement.userFriendlyName(),
+                  e.getTagValue(),
+                  e.getMessage());
+          FailureDetails.Spawn.Code code = FailureDetails.Spawn.Code.COMMAND_LINE_EXPANSION_FAILURE;
+          FailureDetails.FailureDetail details = FailureDetails.FailureDetail
+              .newBuilder()
+              .setMessage(message)
+              .setSpawn(FailureDetails.Spawn.newBuilder().setCode(code))
+              .build();
+          throw new UserExecException(e, details);
+        }
+      }
+    }
+
+    // We put the sandbox inside a unique subdirectory using the context's ID. This ID is
+    // unique per spawn run by this spawn runner.
+    String scope = "sandbox_" + context.getId() + ".scope";
+    if (memoryLimit > 0) {
+      if (cgroup == null) {
+        cgroup = VirtualCGroup.getInstance(this.reporter).child(scope);
+      }
+      cgroup.memory().setMaxBytes(memoryLimit);
+    }
+
+    if (cpuLimit > 0) {
+      if (cgroup == null) {
+        cgroup = VirtualCGroup.getInstance(this.reporter).child(scope);
+      }
+      cgroup.cpu().setCpus(cpuLimit);
+    }
+
+    return cgroup;
   }
 
   @Override
@@ -243,14 +325,13 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             .setUseDebugMode(sandboxOptions.sandboxDebug)
             .setKillDelay(timeoutKillDelay);
 
-    if (sandboxOptions.memoryLimitMb > 0) {
-      CgroupsInfo cgroupsInfo = CgroupsInfo.getInstance();
-      // We put the sandbox inside a unique subdirectory using the context's ID. This ID is
-      // unique per spawn run by this spawn runner.
-      cgroupsDir =
-          cgroupsInfo.createMemoryLimitCgroupDir(
-              "sandbox_" + context.getId(), sandboxOptions.memoryLimitMb);
-      commandLineBuilder.setCgroupsDir(cgroupsDir);
+
+    VirtualCGroup cgroup = getCgroup(spawn, context);
+    if (cgroup != null) {
+      commandLineBuilder.setCgroupsDirs(
+          cgroup.paths().stream()
+            .map(p -> fileSystem.getPath(p.toString()))
+            .collect(ImmutableSet.toImmutableSet()));
     }
 
     if (!timeout.isZero()) {
@@ -322,11 +403,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       throws IOException {
     ImmutableSet.Builder<Path> writableDirs = ImmutableSet.builder();
     writableDirs.addAll(super.getWritableDirs(sandboxExecRoot, env));
-
-    if (getSandboxOptions().memoryLimitMb > 0) {
-      CgroupsInfo cgroupsInfo = CgroupsInfo.getInstance();
-      writableDirs.add(fileSystem.getPath(cgroupsInfo.getMountPoint().getAbsolutePath()));
-    }
     FileSystem fs = sandboxExecRoot.getFileSystem();
     writableDirs.add(fs.getPath("/dev/shm").resolveSymbolicLinks());
     writableDirs.add(fs.getPath("/tmp"));
@@ -508,9 +584,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   @Override
   public void cleanupSandboxBase(Path sandboxBase, TreeDeleter treeDeleter) throws IOException {
-    if (cgroupsDir != null) {
-      new File(cgroupsDir).delete();
-    }
+    VirtualCGroup.deleteInstance();
     // Delete the inaccessible files synchronously, bypassing the treeDeleter. They are only a
     // couple of files that can be deleted fast, and ensuring they are gone at the end of every
     // build avoids annoying permission denied errors if the user happens to run "rm -rf" on the

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.ParseableRequirement.ValidationException;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.server.FailureDetails.TestAction.Code;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Container for test target properties available to the
@@ -88,8 +90,35 @@ public class TestTargetProperties {
     isFlaky = ruleContext.attributes().get("flaky", Type.BOOLEAN);
     isExternal = TargetUtils.isExternalTestRule(rule);
 
+
     Map<String, String> executionInfo = Maps.newLinkedHashMap();
     executionInfo.putAll(TargetUtils.getExecutionInfo(rule));
+
+    ImmutableSet<String> requestedResources = executionInfo.keySet()
+        .stream()
+        .map(tag -> {
+          try {
+            String value = ExecutionRequirements.RESOURCES.parseIfMatches(tag);
+            if (value != null) {
+              return value.substring(0, value.indexOf(":"));
+            } else if (ExecutionRequirements.CPU.parseIfMatches(tag) != null) {
+              return "cpu";
+            }
+          } catch (ValidationException e) {
+            return null;
+          }
+          return null;
+        })
+        .filter(Objects::nonNull)
+        .collect(ImmutableSet.toImmutableSet());
+
+    Map<String, Float> testResources = ruleContext.getConfiguration().getTestResources(size);
+    for (Map.Entry<String, Float> request: testResources.entrySet()) {
+      if (requestedResources.contains(request.getKey())) {
+        continue;
+      }
+      executionInfo.put(String.format("resources:%s:%f", request.getKey(), request.getValue()), "");
+    }
 
     boolean incompatibleExclusiveTestSandboxed = false;
 
@@ -119,6 +148,7 @@ public class TestTargetProperties {
       // This will overwrite whatever TargetUtils put there, which might be confusing.
       executionInfo.putAll(executionRequirements.getExecutionInfo());
     }
+
     ruleContext.getConfiguration().modifyExecutionInfo(executionInfo, TestRunnerAction.MNEMONIC);
     this.executionInfo = ImmutableMap.copyOf(executionInfo);
 

@@ -179,12 +179,23 @@ public final class Profiler {
       jsonWriter.setIndent("  ");
       jsonWriter.beginObject();
       jsonWriter.setIndent("");
-      if (type == null) {
-        jsonWriter.setIndent("    ");
+      if (type == ProfilerTask.SANDBOX_CPU_INFO || type == ProfilerTask.SANDBOX_MEMORY_INFO) {
+        jsonWriter.name("cat").value("sandbox info");
+        jsonWriter.name("name").value(type.description);
+        jsonWriter.name("args");
+        jsonWriter.beginObject();
+        for (String stat : description.split("\n")) {
+          String [] pair = stat.split(" ", 2);
+          jsonWriter.name(pair[0]).value(pair[1]);
+        }
       } else {
-        jsonWriter.name("cat").value(type.description);
+        if (type == null) {
+          jsonWriter.setIndent("    ");
+        } else {
+          jsonWriter.name("cat").value(type.description);
+        }
+        jsonWriter.name("name").value(description);
       }
-      jsonWriter.name("name").value(description);
       jsonWriter.name("ph").value(eventType);
       jsonWriter
           .name("ts")

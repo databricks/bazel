@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
@@ -59,6 +60,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.SortedMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
@@ -70,6 +72,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private static final AtomicBoolean warnedAboutNonHermeticTmp = new AtomicBoolean();
 
   private static final AtomicBoolean warnedAboutUnsupportedModificationCheck = new AtomicBoolean();
+  private ConcurrentHashMap<Integer, Optional<VirtualCGroup>> cgroups;
 
   /**
    * Returns whether the linux sandbox is supported on the local machine by running a small command
@@ -172,12 +175,17 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.localEnvProvider = new PosixLocalEnvProvider(cmdEnv.getClientEnv());
     this.treeDeleter = treeDeleter;
     this.reporter = cmdEnv.getReporter();
+    this.cgroups = new ConcurrentHashMap<>();
   }
 
-  private VirtualCGroup getCgroup(Spawn spawn, SpawnExecutionContext context) throws ExecException, IOException {
+  private Optional<VirtualCGroup> getCgroup(Spawn spawn, SpawnExecutionContext context) throws ExecException, IOException {
     if (spawn.getExecutionInfo().get(ExecutionRequirements.NO_SUPPORTS_CGROUPS) != null) {
       return null;
     }
+    if (cgroups.containsKey(context.getId())) {
+      return cgroups.get(context.getId());
+    }
+
     SandboxOptions sandboxOptions = getSandboxOptions();
 
     VirtualCGroup cgroup = null;
@@ -252,7 +260,9 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       cgroup.cpu().setCpus(cpuLimit);
     }
 
-    return cgroup;
+    cgroups.put(context.getId(), Optional.ofNullable(cgroup));
+
+    return cgroups.get(context.getId());
   }
 
   @Override
@@ -326,10 +336,10 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             .setKillDelay(timeoutKillDelay);
 
 
-    VirtualCGroup cgroup = getCgroup(spawn, context);
-    if (cgroup != null) {
+    Optional<VirtualCGroup> cgroup = getCgroup(spawn, context);
+    if (cgroup.isPresent()) {
       commandLineBuilder.setCgroupsDirs(
-          cgroup.paths().stream()
+          cgroup.get().paths().stream()
             .map(p -> fileSystem.getPath(p.toString()))
             .collect(ImmutableSet.toImmutableSet()));
     }
@@ -527,6 +537,27 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       throws IOException, ForbiddenActionInputException {
     if (getSandboxOptions().useHermetic) {
       checkForConcurrentModifications(context);
+    }
+    Optional<VirtualCGroup> cgroup = cgroups.remove(context.getId());
+    if (cgroup == null || cgroup.isEmpty()) {
+      return;
+    }
+    long now = System.nanoTime();
+    if (cgroup.get().cpu() != null) {
+      String stats = cgroup.get().cpu().getStats();
+      Profiler.instance().logEventAtTime(now, ProfilerTask.SANDBOX_CPU_INFO, stats);
+    }
+    if (cgroup.get().memory() != null) {
+      Long kills = cgroup.get().memory().oomKills();
+      Long limit = cgroup.get().memory().getMaxBytes();
+      Long usage = cgroup.get().memory().maxUsage();
+
+      StringBuilder stats = new StringBuilder(cgroup.get().memory().getStats());
+      if (usage > 0) stats.append("max_usage_in_bytes").append(" ").append(usage).append("\n");
+      if (limit > 0) stats.append("limit_in_bytes").append(" ").append(limit).append("\n");
+      if (kills > 0) stats.append("oom_kills").append(" ").append(kills).append("\n");
+
+      Profiler.instance().logEventAtTime(now, ProfilerTask.SANDBOX_MEMORY_INFO, stats.toString());
     }
   }
 

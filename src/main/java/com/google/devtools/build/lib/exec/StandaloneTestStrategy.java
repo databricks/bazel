@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction;
+import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -278,7 +279,11 @@ public class StandaloneTestStrategy extends TestStrategy {
         .post(
             TestAttempt.forExecutedTestResult(
                 action, data, attemptId, testOutputs, result.executionInfo(), isLastAttempt));
-    processTestOutput(actionExecutionContext, data, action.getTestName(), renamedTestLog);
+    TerminationStatus ts = TerminationStatus.builder()
+        .setWaitResponse(result.spawnResults().get(0).exitCode())
+        .setTimedOut(data.getStatus() == BlazeTestStatus.TIMEOUT)
+        .build();
+    processTestOutput(actionExecutionContext, data, ts, action.getTestName(), renamedTestLog);
     return new StandaloneFailedAttemptResult(data);
   }
 

@@ -1,5 +1,6 @@
 package com.google.devtools.build.lib.sandbox.cgroups;
 
+import com.google.gson.stream.JsonWriter;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -8,24 +9,32 @@ import com.google.common.io.CharSink;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.TraceData;
 import com.google.devtools.build.lib.sandbox.cgroups.v1.LegacyCpu;
+import com.google.devtools.build.lib.sandbox.cgroups.v1.LegacyCpuAcct;
 import com.google.devtools.build.lib.sandbox.cgroups.v1.LegacyMemory;
 import com.google.devtools.build.lib.sandbox.cgroups.v2.UnifiedCpu;
 import com.google.devtools.build.lib.sandbox.cgroups.v2.UnifiedMemory;
 
 import javax.annotation.Nullable;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Scanner;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.TimeUnit;
 
 
 /**
@@ -44,6 +53,9 @@ public abstract class VirtualCGroup {
 
     public abstract Controller.Cpu cpu();
     public abstract Controller.Memory memory();
+    @Nullable
+    public abstract Controller.CpuAcct cpuacct();
+
     public abstract ImmutableSet<Path> paths();
 
     private final Queue<VirtualCGroup> children = new ConcurrentLinkedQueue<>();
@@ -100,6 +112,7 @@ public abstract class VirtualCGroup {
 
         Controller.Memory memory = null;
         Controller.Cpu cpu = null;
+        Controller.CpuAcct cpuacct = null;
         ImmutableSet.Builder<Path> paths = ImmutableSet.builder();
 
         for (Mount m: mounts) {
@@ -172,6 +185,11 @@ public abstract class VirtualCGroup {
                             logger.atInfo().log("Found cgroup v1 cpu controller at %s", cgroup);
                             cpu = new LegacyCpu(cgroup);
                             break;
+                        case "cpuacct":
+                            if (cpuacct != null) continue;
+                            logger.atInfo().log("Found cgroup v1 cpuacct controller at %s", cgroup);
+                            cpuacct = new LegacyCpuAcct(cgroup);
+                            break;
                     }
                 }
             }
@@ -179,7 +197,7 @@ public abstract class VirtualCGroup {
 
         cpu = cpu != null ? cpu : Controller.getDefault(Controller.Cpu.class);
         memory = memory != null ? memory : Controller.getDefault(Controller.Memory.class);
-        VirtualCGroup vcgroup = new AutoValue_VirtualCGroup(cpu, memory, paths.build());
+        VirtualCGroup vcgroup = new AutoValue_VirtualCGroup(cpu, memory, cpuacct, paths.build());
         Runtime.getRuntime().addShutdownHook(new Thread(() -> vcgroup.delete()));
         return vcgroup;
     }
@@ -192,6 +210,7 @@ public abstract class VirtualCGroup {
     public VirtualCGroup child(String name) throws IOException {
         Controller.Cpu cpu = Controller.getDefault(Controller.Cpu.class);
         Controller.Memory memory = Controller.getDefault(Controller.Memory.class);
+        Controller.CpuAcct cpuacct = null;
         ImmutableSet.Builder<Path> paths = ImmutableSet.builder();
         if (memory() != null && memory().getPath() != null) {
             copyControllersToSubtree(memory().getPath());
@@ -207,8 +226,83 @@ public abstract class VirtualCGroup {
             cpu = cpu().isLegacy() ? new LegacyCpu(cgroup) : new UnifiedCpu(cgroup);
             paths.add(cgroup);
         }
-        VirtualCGroup child = new AutoValue_VirtualCGroup(cpu, memory, paths.build());
+        if (cpuacct() != null && cpuacct().getPath() != null) {
+            Path cgroup = cpuacct().getPath().resolve(name);
+            cgroup.toFile().mkdirs();
+            cpuacct = new LegacyCpuAcct(cgroup);
+            paths.add(cgroup);
+        }
+        VirtualCGroup child = new AutoValue_VirtualCGroup(cpu, memory, cpuacct, paths.build());
         this.children.add(child);
         return child;
+    }
+
+    final class StatsData implements TraceData {
+      @Override
+      public void writeTraceData(JsonWriter jsonWriter, long profileStartTimeNanos) throws IOException {
+        long timestamp = TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - profileStartTimeNanos);
+        if (cpu() != null || cpuacct() != null) {
+          var stats = new LinkedHashMap<String, String>();
+          if (cpu() != null) {
+            try (BufferedReader reader = new BufferedReader(new StringReader(cpu().getStats()))) {
+              String line;
+              while ((line = reader.readLine()) != null) {
+                String[] parts = line.split(" ", 2);
+                stats.put(parts[0], parts[1]);
+              }
+            }
+            stats.put("quota", String.valueOf(cpu().getCpus()));
+            stats.put("period", String.valueOf(cpu().getPeriod()));
+          }
+          if (cpuacct() != null) {
+            try (BufferedReader reader = new BufferedReader(new StringReader(cpuacct().getStats()))) {
+              String line;
+              while ((line = reader.readLine()) != null) {
+                  String[] parts = line.split(" ", 2);
+                  Double value = Long.parseLong(parts[1]) * 1e6 / LegacyCpuAcct.USER_HZ;
+                  stats.put(parts[0] + "_usec", String.valueOf(value.longValue()));
+              }
+              }
+              stats.put("usage_usec", String.valueOf(cpuacct().getUsage() / 1000));
+          }
+
+          writeStats(jsonWriter, timestamp, "CPU stats (Sandbox)",  stats);
+        }
+        if (memory() != null) {
+          var stats = new LinkedHashMap<String, String>();
+          Long kills = memory().oomKills();
+          Long limit = memory().getMaxBytes();
+          Long usage = memory().maxUsage();
+          if (usage > 0) stats.put("max_usage_in_bytes", String.valueOf(usage));
+          if (limit > 0) stats.put("limit_in_bytes", String.valueOf(limit));
+          if (kills > 0) stats.put("oom_kills", String.valueOf(kills));
+          writeStats(jsonWriter, timestamp, "Memory stats (Sandbox)", stats);
+        }
+      }
+
+      void writeStats(JsonWriter writer, long timestamp, String name, Map<String, String> stats) throws IOException {
+        var currentThread = Thread.currentThread();
+        var threadId = currentThread.threadId();
+        writer.setIndent("  ");
+        writer.beginObject();
+        writer.setIndent("");
+        writer.name("cat").value("sandbox info");
+        writer.name("name").value(name);
+        writer.name("args");
+        writer.beginObject();
+        for (var entry : stats.entrySet()) {
+          writer.name(entry.getKey()).value(entry.getValue());
+        }
+        writer.endObject();
+        writer.name("ph").value("i");
+        writer.name("ts").value(timestamp);
+        writer.name("pid").value(1);
+        writer.name("tid").value(threadId);
+        writer.endObject();
+      }
+    }
+
+    public void logStats() throws IOException {
+        Profiler.instance().logData(new StatsData());
     }
 }

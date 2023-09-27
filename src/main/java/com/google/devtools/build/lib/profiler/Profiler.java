@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
+import static java.util.Map.entry;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -712,6 +713,14 @@ public final class Profiler {
   /** Used to log "events" happening at a specific time - tasks with zero duration. */
   public void logEventAtTime(long atTimeNanos, ProfilerTask type, String description) {
     logTask(atTimeNanos, 0, type, description);
+  }
+
+  /** Log arbitrary data. */
+  public void logData(TraceData data) {
+    JsonTraceFileWriter writer = writerRef.get();
+    if (writer != null) {
+      writer.enqueue(data);
+    }
   }
 
   /** Used to log "events" - tasks with zero duration. */

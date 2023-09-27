@@ -18,6 +18,11 @@ public class UnifiedCpu implements Controller.Cpu {
     }
 
     @Override
+    public Path statFile() throws IOException {
+        return path.resolve("cpu.stat");
+    }
+
+    @Override
     public void setCpus(float cpus) throws IOException {
         int period = 1000_000;
         int quota = Math.round(period * cpus);

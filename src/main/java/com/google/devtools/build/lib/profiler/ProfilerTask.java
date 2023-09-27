@@ -75,6 +75,8 @@ public enum ProfilerTask {
   SYSTEM_NETWORK_UP_USAGE("Network Up usage (total)"),
   SYSTEM_NETWORK_DOWN_USAGE("Network Down usage (total)"),
   WORKERS_MEMORY_USAGE("Workers memory usage"),
+  SANDBOX_CPU_INFO("CPU stats (Sandbox)"),
+  SANDBOX_MEMORY_INFO("Memory stats (Sandbox)"),
   SYSTEM_LOAD_AVERAGE("System load average"),
   STARLARK_PARSER("Starlark Parser", Threshold.FIFTY_MILLIS),
   STARLARK_USER_FN("Starlark user function call", Threshold.FIFTY_MILLIS),

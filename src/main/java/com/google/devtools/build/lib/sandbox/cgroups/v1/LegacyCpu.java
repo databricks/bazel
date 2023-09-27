@@ -5,6 +5,8 @@ import com.google.devtools.build.lib.sandbox.cgroups.Controller;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class LegacyCpu implements Controller.Cpu {
     private final Path path;
@@ -21,6 +23,11 @@ public class LegacyCpu implements Controller.Cpu {
     }
 
     @Override
+    public Path statFile() throws IOException {
+        return path.resolve("cpu.stat");
+    }
+
+    @Override
     public void setCpus(float cpus) throws IOException {
         int quota = Math.round(cpus * period);
         Files.writeString(path.resolve("cpu.cfs_quota_us"), Integer.toString(quota));
@@ -29,5 +36,9 @@ public class LegacyCpu implements Controller.Cpu {
     @Override
     public int getCpus() throws IOException {
         return Integer.parseInt(Files.readString(path.resolve("cpu.cfs_quota_us")).trim());
+    }
+
+    public int getPeriod() throws IOException {
+        return this.period;
     }
 }

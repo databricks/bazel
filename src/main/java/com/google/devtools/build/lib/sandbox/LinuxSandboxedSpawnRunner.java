@@ -539,6 +539,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     }
     Optional<VirtualCGroup> cgroup = cgroups.remove(context.getId());
     if (cgroup != null && cgroup.isPresent()) {
+      cgroup.get().logStats();
       // We cannot leave the cgroups around and delete them only when we delete the sandboxes
       // because linux has a hard limit of 65535 memory controllers.
       // Ref. https://github.com/torvalds/linux/blob/58d4e450a490d5f02183f6834c12550ba26d3b47/include/linux/memcontrol.h#L69

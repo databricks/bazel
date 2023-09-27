@@ -8,16 +8,21 @@ import com.google.common.io.CharSink;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.sandbox.cgroups.v1.LegacyCpu;
+import com.google.devtools.build.lib.sandbox.cgroups.v1.LegacyCpuAcct;
 import com.google.devtools.build.lib.sandbox.cgroups.v1.LegacyMemory;
 import com.google.devtools.build.lib.sandbox.cgroups.v2.UnifiedCpu;
 import com.google.devtools.build.lib.sandbox.cgroups.v2.UnifiedMemory;
 
 import javax.annotation.Nullable;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -44,6 +49,9 @@ public abstract class VirtualCGroup {
 
     public abstract Controller.Cpu cpu();
     public abstract Controller.Memory memory();
+    @Nullable
+    public abstract Controller.CpuAcct cpuacct();
+
     public abstract ImmutableSet<Path> paths();
 
     private final Queue<VirtualCGroup> children = new ConcurrentLinkedQueue<>();
@@ -100,6 +108,7 @@ public abstract class VirtualCGroup {
 
         Controller.Memory memory = null;
         Controller.Cpu cpu = null;
+        Controller.CpuAcct cpuacct = null;
         ImmutableSet.Builder<Path> paths = ImmutableSet.builder();
 
         for (Mount m: mounts) {
@@ -172,6 +181,11 @@ public abstract class VirtualCGroup {
                             logger.atInfo().log("Found cgroup v1 cpu controller at %s", cgroup);
                             cpu = new LegacyCpu(cgroup);
                             break;
+                        case "cpuacct":
+                            if (cpuacct != null) continue;
+                            logger.atInfo().log("Found cgroup v1 cpuacct controller at %s", cgroup);
+                            cpuacct = new LegacyCpuAcct(cgroup);
+                            break;
                     }
                 }
             }
@@ -179,7 +193,7 @@ public abstract class VirtualCGroup {
 
         cpu = cpu != null ? cpu : Controller.getDefault(Controller.Cpu.class);
         memory = memory != null ? memory : Controller.getDefault(Controller.Memory.class);
-        VirtualCGroup vcgroup = new AutoValue_VirtualCGroup(cpu, memory, paths.build());
+        VirtualCGroup vcgroup = new AutoValue_VirtualCGroup(cpu, memory, cpuacct, paths.build());
         Runtime.getRuntime().addShutdownHook(new Thread(() -> vcgroup.delete()));
         return vcgroup;
     }
@@ -192,6 +206,7 @@ public abstract class VirtualCGroup {
     public VirtualCGroup child(String name) throws IOException {
         Controller.Cpu cpu = Controller.getDefault(Controller.Cpu.class);
         Controller.Memory memory = Controller.getDefault(Controller.Memory.class);
+        Controller.CpuAcct cpuacct = null;
         ImmutableSet.Builder<Path> paths = ImmutableSet.builder();
         if (memory() != null && memory().getPath() != null) {
             copyControllersToSubtree(memory().getPath());
@@ -207,8 +222,50 @@ public abstract class VirtualCGroup {
             cpu = cpu().isLegacy() ? new LegacyCpu(cgroup) : new UnifiedCpu(cgroup);
             paths.add(cgroup);
         }
-        VirtualCGroup child = new AutoValue_VirtualCGroup(cpu, memory, paths.build());
+        if (cpuacct() != null && cpuacct().getPath() != null) {
+            Path cgroup = cpuacct().getPath().resolve(name);
+            cgroup.toFile().mkdirs();
+            cpuacct = new LegacyCpuAcct(cgroup);
+            paths.add(cgroup);
+        }
+        VirtualCGroup child = new AutoValue_VirtualCGroup(cpu, memory, cpuacct, paths.build());
         this.children.add(child);
         return child;
+    }
+
+    public void logStats() throws IOException {
+        long now = System.nanoTime();
+        if (cpu() != null || cpuacct() != null) {
+            StringBuilder stats = new StringBuilder();
+            if (cpu() != null) {
+                stats.append(cpu().getStats());
+                stats.append("quota").append(" ").append(cpu().getCpus()).append("\n");
+                stats.append("period").append(" ").append(cpu().getPeriod()).append("\n");
+            }
+            if (cpuacct() != null) {
+                try (BufferedReader reader = new BufferedReader(new StringReader(cpuacct().getStats()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        String[] parts = line.split(" ", 2);
+                        Double value = Long.parseLong(parts[1]) * 1e6 / LegacyCpuAcct.USER_HZ;
+                        stats.append(parts[0]).append("_usec ").append(value.longValue()).append("\n");
+                    }
+                }
+                stats.append("usage_usec").append(" ").append(cpuacct().getUsage() / 1000).append("\n");
+            }
+            Profiler.instance().logEventAtTime(now, ProfilerTask.SANDBOX_CPU_INFO, stats.toString());
+        }
+        if (memory() != null) {
+            Long kills = memory().oomKills();
+            Long limit = memory().getMaxBytes();
+            Long usage = memory().maxUsage();
+
+            StringBuilder stats = new StringBuilder();
+            if (usage > 0) stats.append("max_usage_in_bytes").append(" ").append(usage).append("\n");
+            if (limit > 0) stats.append("limit_in_bytes").append(" ").append(limit).append("\n");
+            if (kills > 0) stats.append("oom_kills").append(" ").append(kills).append("\n");
+
+            Profiler.instance().logEventAtTime(now, ProfilerTask.SANDBOX_MEMORY_INFO, stats.toString());
+        }
     }
 }

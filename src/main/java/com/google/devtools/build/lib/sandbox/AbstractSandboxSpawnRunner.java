@@ -132,7 +132,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
 
   private SpawnResult runSpawn(
       Spawn originalSpawn, SandboxedSpawn sandbox, SpawnExecutionContext context)
-      throws IOException, ForbiddenActionInputException, InterruptedException {
+      throws IOException, ForbiddenActionInputException, InterruptedException, ExecException {
     try {
       try (SilentCloseable c = Profiler.instance().profile("sandbox.createFileSystem")) {
         sandbox.createFileSystem();
@@ -169,7 +169,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   /** Override this method if you need to run a post condition after the action has executed */
   public void verifyPostCondition(
       Spawn originalSpawn, SandboxedSpawn sandbox, SpawnExecutionContext context)
-      throws IOException, ForbiddenActionInputException {}
+      throws IOException, ForbiddenActionInputException, ExecException {}
 
   private String makeFailureMessage(Spawn originalSpawn, SandboxedSpawn sandbox) {
     if (sandboxOptions.sandboxDebug) {
@@ -184,7 +184,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
 
   private final SpawnResult run(
       Spawn originalSpawn, SandboxedSpawn sandbox, Duration timeout, FileOutErr outErr)
-      throws IOException, InterruptedException {
+      throws IOException, InterruptedException, ExecException {
     SubprocessBuilder subprocessBuilder = new SubprocessBuilder();
     subprocessBuilder.setWorkingDirectory(sandbox.getSandboxExecRoot().getPathFile());
     subprocessBuilder.setStdout(outErr.getOutputPath().getPathFile());

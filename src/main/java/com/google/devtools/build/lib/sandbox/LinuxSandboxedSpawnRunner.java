@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
@@ -524,9 +525,34 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   @Override
   public void verifyPostCondition(
       Spawn originalSpawn, SandboxedSpawn sandbox, SpawnExecutionContext context)
-      throws IOException, ForbiddenActionInputException {
+      throws IOException, ForbiddenActionInputException, ExecException {
     if (getSandboxOptions().useHermetic) {
       checkForConcurrentModifications(context);
+    }
+    VirtualCGroup cgroup = getCgroup(originalSpawn, context);
+    Long now = System.nanoTime();
+    if (cgroup != null && cgroup.memory() != null) {
+      String stats = cgroup.memory().getStats();
+      Profiler.instance().logEventAtTime(now, ProfilerTask.SANDBOX_MEMORY_INFO, stats);
+    }
+    if (cgroup != null && cgroup.cpu() != null) {
+      String stats = cgroup.cpu().getStats();
+      Profiler.instance().logEventAtTime(now, ProfilerTask.SANDBOX_CPU_INFO, stats);
+    }
+    if (cgroup != null && cgroup.memory() != null && cgroup.memory().oomKills() > 0) {
+      Long count = cgroup.memory().oomKills();
+      Long limit = cgroup.memory().getMaxBytes() / 1024 / 1024;
+      Long usage = cgroup.memory().maxUsage() / 1024 / 1024;
+      reporter.handle(
+          Event.warn(
+              String.format(
+                  "%s (%s): detected %d OOM %s in cgroup. Limit was %s MB%s",
+                  originalSpawn.getTargetLabel(),
+                  originalSpawn.getMnemonic(),
+                  count,
+                  count > 1 ? "kills" : "kill",
+                  limit,
+                  usage > 0 ? ", but record usage >= " + usage + " MB." : ".")));
     }
   }
 

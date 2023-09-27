@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
+import static com.google.devtools.build.lib.profiler.ProfilerTask.SANDBOX_CPU_INFO;
+import static com.google.devtools.build.lib.profiler.ProfilerTask.SANDBOX_MEMORY_INFO;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.TASK_COUNT;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -970,12 +972,24 @@ public final class Profiler {
       writer.setIndent("  ");
       writer.beginObject();
       writer.setIndent("");
-      if (data.type == null) {
-        writer.setIndent("    ");
+      if (data.type == SANDBOX_CPU_INFO || data.type == SANDBOX_MEMORY_INFO) {
+        writer.name("cat").value("sandbox info");
+        writer.name("name").value(data.type.description);
+        writer.name("args");
+        writer.beginObject();
+        for (String stat : data.description.split("\n")) {
+          String [] pair = stat.split(" ", 2);
+          writer.name(pair[0]).value(pair[1]);
+        }
+        writer.endObject();
       } else {
-        writer.name("cat").value(data.type.description);
+        if (data.type == null) {
+          writer.setIndent("    ");
+        } else {
+          writer.name("cat").value(data.type.description);
+        }
+        writer.name("name").value(data.description);
       }
-      writer.name("name").value(data.description);
       writer.name("ph").value(eventType);
       writer
           .name("ts")

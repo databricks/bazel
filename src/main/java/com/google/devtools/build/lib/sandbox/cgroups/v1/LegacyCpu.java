@@ -5,6 +5,8 @@ import com.google.devtools.build.lib.sandbox.cgroups.Controller;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class LegacyCpu implements Controller.Cpu {
     private final Path path;
@@ -18,6 +20,11 @@ public class LegacyCpu implements Controller.Cpu {
     @Override
     public Path getPath() {
         return path;
+    }
+
+    @Override
+    public Path statFile() throws IOException {
+        return path.resolve("cpu.stat");
     }
 
     @Override

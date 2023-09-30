@@ -963,17 +963,17 @@ public class ExecutionTool {
   public static void configureResourceManager(ResourceManager resourceMgr, BuildRequest request) {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     resourceMgr.setPrioritizeLocalActions(options.prioritizeLocalActions);
-    ImmutableMap<String, Float> extraResources =
-        options.localExtraResources.stream()
+    ImmutableMap<String, Double> cpuRam =
+            ImmutableMap.of("cpu", options.localCpuResources, "memory", options.localRamResources);
+    ImmutableMap<String, Double> resources =
+       java.util.stream.Stream.concat(cpuRam.entrySet().stream(), options.localExtraResources.stream())
             .collect(
                 ImmutableMap.toImmutableMap(
                     Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v2));
 
     resourceMgr.setAvailableResources(
         ResourceSet.create(
-            options.localRamResources,
-            options.localCpuResources,
-            extraResources,
+            resources,
             options.usingLocalTestJobs() ? options.localTestJobs : Integer.MAX_VALUE));
   }
 

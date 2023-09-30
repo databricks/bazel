@@ -435,7 +435,7 @@ public class SandboxOptions extends OptionsBase {
   public static final class AsyncTreeDeletesConverter extends ResourceConverter {
     public AsyncTreeDeletesConverter() {
       super(
-          () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage()),
+          () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().get("cpu")),
           0,
           Integer.MAX_VALUE);
     }

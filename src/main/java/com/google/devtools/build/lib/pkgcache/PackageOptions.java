@@ -63,7 +63,7 @@ public class PackageOptions extends OptionsBase {
     public ParallelismConverter() throws OptionsParsingException {
       super(
           /* autoSupplier= */ () ->
-              (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage()),
+              (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().get("cpu")),
           /* minValue= */ 1,
           /* maxValue= */ Integer.MAX_VALUE);
     }

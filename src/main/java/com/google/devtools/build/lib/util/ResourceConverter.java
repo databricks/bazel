@@ -73,10 +73,10 @@ public class ResourceConverter extends Converters.IntegerConverter {
             .put("auto", autoSupplier)
             .put(
                 "HOST_CPUS",
-                () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage()))
+                () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().get("cpu")))
             .put(
                 "HOST_RAM",
-                () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getMemoryMb()))
+                () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().get("memory")))
             .build(),
         minValue,
         maxValue);

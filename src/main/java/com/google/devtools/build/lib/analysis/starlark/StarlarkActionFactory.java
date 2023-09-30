@@ -98,7 +98,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   /** Counter for actions.run_shell helper scripts. Every script must have a unique name. */
   private int runShellOutputCounter = 0;
 
-  private static final ResourceSet DEFAULT_RESOURCE_SET = ResourceSet.createWithRamCpu(250, 1);
+  private static final ResourceSet DEFAULT_RESOURCE_SET = ResourceSet.create(250, 1);
   private static final Set<String> validResources =
       new HashSet<>(Arrays.asList("cpu", "memory", "local_test"));
 
@@ -756,8 +756,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         }
 
         return ResourceSet.create(
-            getNumericOrDefault(resourceSetMapRaw, "memory", DEFAULT_RESOURCE_SET.getMemoryMb()),
-            getNumericOrDefault(resourceSetMapRaw, "cpu", DEFAULT_RESOURCE_SET.getCpuUsage()),
+            getNumericOrDefault(resourceSetMapRaw, "memory", DEFAULT_RESOURCE_SET.get("memory")),
+            getNumericOrDefault(resourceSetMapRaw, "cpu", DEFAULT_RESOURCE_SET.get("cpu")),
             (int)
                 getNumericOrDefault(
                     resourceSetMapRaw,

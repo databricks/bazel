@@ -39,8 +39,8 @@ public class ResourceSetTest {
   @Test
   public void testConverterParsesExpectedFormat() throws Exception {
     ResourceSet resources = converter.convert("1,0.5,2");
-    assertThat(resources.getMemoryMb()).isWithin(0.01).of(1.0);
-    assertThat(resources.getCpuUsage()).isWithin(0.01).of(0.5);
+    assertThat(resources.get("memory")).isWithin(0.01).of(1.0);
+    assertThat(resources.get("cpu")).isWithin(0.01).of(0.5);
     assertThat(resources.getLocalTestCount()).isEqualTo(Integer.MAX_VALUE);
   }
 

@@ -419,12 +419,12 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
   public ResourceSet estimateResourceConsumptionLocal(OS os, int inputs) {
     switch (os) {
       case DARWIN:
-        return ResourceSet.createWithRamCpu(/* memoryMb= */ 15 + 0.05 * inputs, /* cpuUsage= */ 1);
+        return ResourceSet.create(/* memoryMb= */ 15 + 0.05 * inputs, /* cpuUsage= */ 1);
       case LINUX:
-        return ResourceSet.createWithRamCpu(
+        return ResourceSet.create(
             /* memoryMb= */ Math.max(50, -100 + 0.1 * inputs), /* cpuUsage= */ 1);
       default:
-        return ResourceSet.createWithRamCpu(/* memoryMb= */ 1500 + inputs, /* cpuUsage= */ 1);
+        return ResourceSet.create(/* memoryMb= */ 1500 + inputs, /* cpuUsage= */ 1);
     }
   }
 

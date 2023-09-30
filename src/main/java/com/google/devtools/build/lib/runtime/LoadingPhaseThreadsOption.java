@@ -52,7 +52,7 @@ public class LoadingPhaseThreadsOption extends OptionsBase {
       // Mac Pros and MacBook Pros but we should probably do better than this. (We haven't made
       // any guarantees that "auto" means number of cores precisely to leave us room to tune this
       // further in the future.)
-      super(() -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage()));
+      super(() -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().get("cpu")));
     }
 
     @Override

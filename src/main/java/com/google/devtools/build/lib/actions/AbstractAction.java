@@ -82,7 +82,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    * amounts of memory), we suggest to use this default set.
    */
   // TODO(ulfjack): Collect actual data to confirm that this is an acceptable approximation.
-  public static final ResourceSet DEFAULT_RESOURCE_SET = ResourceSet.createWithRamCpu(250, 1);
+  public static final ResourceSet DEFAULT_RESOURCE_SET = ResourceSet.create(250, 1);
 
   /**
    * The owner/inputs/outputs attributes below should never be directly accessed even within

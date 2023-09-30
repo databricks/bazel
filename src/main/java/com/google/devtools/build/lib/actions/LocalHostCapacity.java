@@ -56,7 +56,7 @@ public final class LocalHostCapacity {
 
     logger.atInfo().log(
         "Determined local resources: RAM=%dMB, CPU=%.1f",
-        (int) localResources.getMemoryMb(), localResources.getCpuUsage());
+        (int) localResources.get("memory"), localResources.get("cpu"));
     return localResources;
   }
 

@@ -382,9 +382,9 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
 
     SpawnAction spawnAction = getGeneratingSpawnAction(getBinArtifact("out", target));
     assertThat(spawnAction.getResourceSetOrBuilder().buildResourceSet(OS.DARWIN, 0))
-        .isEqualTo(ResourceSet.createWithRamCpu(25, 1));
+        .isEqualTo(ResourceSet.create(25, 1));
     assertThat(spawnAction.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 2))
-        .isEqualTo(ResourceSet.createWithRamCpu(25.3, 1));
+        .isEqualTo(ResourceSet.create(25.3, 1));
   }
 
   /** Verifies <code>--protocopts</code> are passed to command line. */

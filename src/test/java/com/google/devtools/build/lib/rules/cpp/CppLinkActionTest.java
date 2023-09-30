@@ -798,22 +798,22 @@ public class CppLinkActionTest extends BuildViewTestCase {
             .build();
 
     assertThat(linkAction.estimateResourceConsumptionLocal(OS.DARWIN, 100))
-        .isEqualTo(ResourceSet.createWithRamCpu(20, 1));
+        .isEqualTo(ResourceSet.create(20, 1));
 
     assertThat(linkAction.estimateResourceConsumptionLocal(OS.DARWIN, 1000))
-        .isEqualTo(ResourceSet.createWithRamCpu(65, 1));
+        .isEqualTo(ResourceSet.create(65, 1));
 
     assertThat(linkAction.estimateResourceConsumptionLocal(OS.LINUX, 100))
-        .isEqualTo(ResourceSet.createWithRamCpu(50, 1));
+        .isEqualTo(ResourceSet.create(50, 1));
 
     assertThat(linkAction.estimateResourceConsumptionLocal(OS.LINUX, 10000))
-        .isEqualTo(ResourceSet.createWithRamCpu(900, 1));
+        .isEqualTo(ResourceSet.create(900, 1));
 
     assertThat(linkAction.estimateResourceConsumptionLocal(OS.WINDOWS, 0))
-        .isEqualTo(ResourceSet.createWithRamCpu(1500, 1));
+        .isEqualTo(ResourceSet.create(1500, 1));
 
     assertThat(linkAction.estimateResourceConsumptionLocal(OS.WINDOWS, 1000))
-        .isEqualTo(ResourceSet.createWithRamCpu(2500, 1));
+        .isEqualTo(ResourceSet.create(2500, 1));
   }
 
   private CppLinkActionBuilder createLinkBuilder(

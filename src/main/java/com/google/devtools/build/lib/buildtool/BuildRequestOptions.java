@@ -497,7 +497,7 @@ public class BuildRequestOptions extends OptionsBase {
     public ThreadConverter() {
       super(
           /* autoSupplier= */ () ->
-              (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage()),
+              (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().get("cpu")),
           /* minValue= */ 1,
           /* maxValue= */ Integer.MAX_VALUE);
     }
@@ -558,7 +558,7 @@ public class BuildRequestOptions extends OptionsBase {
   public static class JobsConverter extends ResourceConverter {
     public JobsConverter() {
       super(
-          () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage()),
+          () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().get("cpu")),
           1,
           MAX_JOBS);
     }

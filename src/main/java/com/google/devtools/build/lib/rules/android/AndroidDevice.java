@@ -357,7 +357,7 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
               //   (there is a slight overhead for qemu's internals, but this is miniscule).
               // CPU: 100% - the emulator will peg a single cpu during boot because it's a very
               //   computation intensive part of the lifecycle.
-              .setResources(ResourceSet.createWithRamCpu(ram, 1))
+              .setResources(ResourceSet.create(ram, 1))
               .addExecutableArguments(
                   "--action=boot",
                   "--density=" + density,

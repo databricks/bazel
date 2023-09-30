@@ -113,7 +113,7 @@ public class WorkerSpawnRunnerTest {
     when(spawn.getInputFiles()).thenReturn(NestedSetBuilder.emptySet(Order.COMPILE_ORDER));
     when(context.getArtifactExpander()).thenReturn((artifact, output) -> {});
     doNothing().when(metricsCollector).registerWorker(any());
-    when(spawn.getLocalResources()).thenReturn(ResourceSet.createWithRamCpu(100, 1));
+    when(spawn.getLocalResources()).thenReturn(ResourceSet.create(100, 1));
     when(resourceManager.acquireResources(any(), any(), any())).thenReturn(resourceHandle);
     when(resourceHandle.getWorker()).thenReturn(worker);
   }

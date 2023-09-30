@@ -25,7 +25,7 @@ public final class RamResourceConverter extends ResourceConverter {
     super(
         /* keywords= */ ImmutableMap.of(
             "HOST_RAM",
-            () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getMemoryMb())),
+            () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().get("memory"))),
         /* minValue= */ 0,
         /* maxValue= */ Integer.MAX_VALUE);
   }

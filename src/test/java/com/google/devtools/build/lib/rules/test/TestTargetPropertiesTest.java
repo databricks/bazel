@@ -49,7 +49,7 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
         testAction
             .getTestProperties()
             .getLocalResourceUsage(testAction.getOwner().getLabel(), false);
-    assertThat(localResourceUsage.getCpuUsage()).isEqualTo(4.0);
+    assertThat(localResourceUsage.get("cpu")).isEqualTo(4.0);
   }
 
   @Test

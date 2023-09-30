@@ -81,14 +81,14 @@ public class ResourceConverterTest {
 
   @Test
   public void convertHostCpus_returnsCpuSetting() throws Exception {
-    LocalHostCapacity.setLocalHostCapacity(ResourceSet.createWithRamCpu(1, 15));
+    LocalHostCapacity.setLocalHostCapacity(ResourceSet.create(1, 15));
     resourceConverter = new ResourceConverter(() -> 5);
     assertThat(resourceConverter.convert("HOST_CPUS")).isEqualTo(15);
   }
 
   @Test
   public void convertRam_returnsRamSetting() throws Exception {
-    LocalHostCapacity.setLocalHostCapacity(ResourceSet.createWithRamCpu(10, 0));
+    LocalHostCapacity.setLocalHostCapacity(ResourceSet.create(10, 0));
     resourceConverter = new ResourceConverter(() -> 5);
     assertThat(resourceConverter.convert("HOST_RAM")).isEqualTo(10);
   }
@@ -128,7 +128,7 @@ public class ResourceConverterTest {
   @Test
   public void buildConverter_beforeResources_usesResources() throws Exception {
     resourceConverter = new ResourceConverter(() -> null);
-    LocalHostCapacity.setLocalHostCapacity(ResourceSet.createWithRamCpu(0, 15));
+    LocalHostCapacity.setLocalHostCapacity(ResourceSet.create(0, 15));
     assertThat(resourceConverter.convert("HOST_CPUS")).isEqualTo(15);
   }
 

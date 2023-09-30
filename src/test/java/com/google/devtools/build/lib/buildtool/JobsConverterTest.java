@@ -38,14 +38,14 @@ public class JobsConverterTest {
 
   @Test
   public void testAutoJobsUsesHardwareSettings() throws Exception {
-    LocalHostCapacity.setLocalHostCapacity(ResourceSet.createWithRamCpu(1, 123));
+    LocalHostCapacity.setLocalHostCapacity(ResourceSet.create(1, 123));
     assertThat(jobsConverter.convert("auto")).isEqualTo(123);
   }
 
   @Test
   public void testAutoJobsAdjustsIfHardwareDetectionIsBogus() throws Exception {
     LocalHostCapacity.setLocalHostCapacity(
-        ResourceSet.createWithRamCpu(1, BuildRequestOptions.MAX_JOBS + 1));
+        ResourceSet.create(1, BuildRequestOptions.MAX_JOBS + 1));
     assertThat(jobsConverter.convert("auto")).isEqualTo(BuildRequestOptions.MAX_JOBS);
   }
 

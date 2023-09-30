@@ -25,7 +25,7 @@ public final class CpuResourceConverter extends ResourceConverter {
     super(
         ImmutableMap.of(
             "HOST_CPUS",
-            () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage())),
+            () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().get("cpu"))),
         /*minValue=*/ 0,
         Integer.MAX_VALUE);
   }

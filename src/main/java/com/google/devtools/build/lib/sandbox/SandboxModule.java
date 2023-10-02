@@ -238,8 +238,31 @@ public final class SandboxModule extends BlazeModule {
     // previous builds. However, on the very first build of an instance of the server, we must
     // wipe old contents to avoid reusing stale directories.
     if (firstBuild && sandboxBase.exists()) {
-      cmdEnv.getReporter().handle(Event.info("Deleting stale sandbox base " + sandboxBase));
-      sandboxBase.deleteTree();
+      if (options.asyncFirstBuildDelete && (treeDeleter instanceof AsynchronousTreeDeleter)) {
+        cmdEnv.getReporter().handle(Event.info("Async deleting stale sandbox base " + sandboxBase));
+        // Create a staging ground for the old sandbox base to be moved to.
+        Path oldSandboxBaseStagingGround = sandboxBase.getParentDirectory().getRelative("old-sandbox-staging");
+        // Create the staging ground dir if it doesn't exist
+        oldSandboxBaseStagingGround.createDirectoryAndParents();
+
+        // Get a random int to use as a unique identifier for this deletion. This should be a
+        // positive int. nextInt(foo) returns a value between 0 (inclusive) and foo (exclusive).
+        int identifier = new Random().nextInt(Integer.MAX_VALUE);
+        Path oldSandboxBase = oldSandboxBaseStagingGround.getRelative("old-sandbox-" + identifier);
+
+        // Move the old sandbox base to the location in the staging ground.
+        sandboxBase.renameTo(oldSandboxBase);
+
+        // At this point, it's safe for the primary thread to continue - the sandbox base is empty
+
+        // Use the async tree deleter to cleanup all the contents of the staging ground. If there
+        // were previously staged deletes that didn't complete, they're also in this directory and
+        // will be cleaned up.
+        treeDeleter.deleteTreesBelow(oldSandboxBaseStagingGround);
+      } else {
+        cmdEnv.getReporter().handle(Event.info("Deleting stale sandbox base " + sandboxBase));
+        sandboxBase.deleteTree();
+      }
     }
     firstBuild = false;
 

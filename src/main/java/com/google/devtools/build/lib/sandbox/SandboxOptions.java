@@ -349,6 +349,17 @@ public class SandboxOptions extends OptionsBase {
   public int asyncTreeDeleteIdleThreads;
 
   @Option(
+      name = "experimental_sandbox_async_tree_delete_on_first_build",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          "If false, sandbox deletion on the first build will be done synchronously. If true, "
+              + "and experimental_sandbox_async_tree_delete_idle_threads is non-0, sandbox deletion"
+              + "on the first build will be done asynchronously.")
+  public int asyncFirstBuildDelete;
+
+  @Option(
       name = "incompatible_legacy_local_fallback",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,

@@ -66,6 +66,7 @@ public enum ProfilerTask {
   CRITICAL_PATH_COMPONENT("critical path component"),
   HANDLE_GC_NOTIFICATION("gc notification"),
   ACTION_COUNTS("action count"),
+  AVAILABLE_RESOURCES("Available"),
   LOCAL_CPU_USAGE("CPU usage (Bazel)"),
   SYSTEM_CPU_USAGE("CPU usage (total)"),
   LOCAL_MEMORY_USAGE("Memory usage (Bazel)"),

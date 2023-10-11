@@ -20,6 +20,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.worker.Worker;
@@ -201,6 +202,7 @@ public class ResourceManager {
     localRequests.clear();
     dynamicWorkerRequests.clear();
     dynamicStandaloneRequests.clear();
+    logResources(availableResources);
   }
 
   /**
@@ -212,6 +214,7 @@ public class ResourceManager {
     Preconditions.checkNotNull(resources);
     resetResourceUsage();
     availableResources = resources;
+    logResources(resources);
   }
 
   /** Sets worker pool for taking the workers. Must be called before requesting the workers. */
@@ -277,6 +280,32 @@ public class ResourceManager {
     return new ResourceHandle(this, owner, resources, worker);
   }
 
+  private void logResources(ResourceSet resources) {
+    if (resources == null) {
+      return;
+    }
+    long now = System.nanoTime();
+    for (String resource: resources.getResources().keySet()){
+      Profiler.instance().logEventAtTime(
+        now,
+        ProfilerTask.AVAILABLE_RESOURCES,
+        String.format(
+            "%f %s",
+            // Because we allow over-subscribing resources in MIN_NECESSARY_RATIO
+            // these resource can become negative, breaking profile
+            // counter visualizations. In that case, just log 0
+            Math.max(0, availableResources.get(resource) - usedResources.getOrDefault(resource, 0.0)),
+            resource));
+    }
+    if (resources.getLocalTestCount() > 0) {
+      Profiler.instance().logEventAtTime(
+        now,
+        ProfilerTask.AVAILABLE_RESOURCES,
+        String.format(
+            "%d %s", availableResources.getLocalTestCount() - usedLocalTestCount, "local_test"));
+    }
+  }
+
   @Nullable
   private Worker incrementResources(ResourceSet resources)
       throws IOException, InterruptedException {
@@ -291,6 +320,7 @@ public class ResourceManager {
             });
 
     usedLocalTestCount += resources.getLocalTestCount();
+    logResources(resources);
 
     if (resources.getWorkerKey() != null) {
       return this.workerPool.borrowObject(resources.getWorkerKey());
@@ -424,6 +454,7 @@ public class ResourceManager {
     for (String key : toRemove) {
       usedResources.remove(key);
     }
+    logResources(resources);
   }
 
   private synchronized boolean processAllWaitingThreads() throws IOException, InterruptedException {

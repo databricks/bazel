@@ -1177,7 +1177,8 @@ public final class Profiler {
                 || data.type == ProfilerTask.SYSTEM_NETWORK_UP_USAGE
                 || data.type == ProfilerTask.SYSTEM_NETWORK_DOWN_USAGE
                 || data.type == ProfilerTask.WORKERS_MEMORY_USAGE
-                || data.type == ProfilerTask.SYSTEM_LOAD_AVERAGE) {
+                || data.type == ProfilerTask.SYSTEM_LOAD_AVERAGE
+                || data.type == ProfilerTask.AVAILABLE_RESOURCES) {
               // Skip counts equal to zero. They will show up as a thin line in the profile.
               if ("0.0".equals(data.description)) {
                 continue;
@@ -1185,7 +1186,16 @@ public final class Profiler {
               writer.setIndent("  ");
               writer.beginObject();
               writer.setIndent("");
-              writer.name("name").value(data.type.description);
+              String name = data.type.description;
+              String argName = null;
+              String value = null;
+              if (data.type == ProfilerTask.AVAILABLE_RESOURCES) {
+                String[] parts = data.description.split(" ", 2);
+                argName = parts[1];
+                value = parts[0];
+                name += " " + argName;
+              }
+              writer.name("name").value(name);
 
               // Pick acceptable counter colors manually, unfortunately we have to pick from these
               // weird reserved names from
@@ -1211,6 +1221,7 @@ public final class Profiler {
                   writer.name("cname").value("rail_animation");
                   break;
                 case SYSTEM_LOAD_AVERAGE:
+                case AVAILABLE_RESOURCES:
                   writer.name("cname").value("generic_work");
                   break;
                 default:
@@ -1227,6 +1238,9 @@ public final class Profiler {
 
               writer.beginObject();
               switch (data.type) {
+                case AVAILABLE_RESOURCES:
+                  writer.name(argName).value(value);
+                  break;
                 case LOCAL_CPU_USAGE:
                   writer.name("cpu").value(data.description);
                   break;

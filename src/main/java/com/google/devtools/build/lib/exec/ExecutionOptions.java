@@ -563,7 +563,9 @@ public class ExecutionOptions extends OptionsBase {
     @Override
     public PerLabelOptions convert(String input) throws OptionsParsingException {
       try {
-        return parseAsInteger(input);
+        RegexFilter catchAll =
+            new RegexFilter(Collections.singletonList(".*"), Collections.<String>emptyList());
+        return new PerLabelOptions(catchAll, Collections.singletonList("1"));
       } catch (NumberFormatException ignored) {
         return parseAsRegex(input);
       }

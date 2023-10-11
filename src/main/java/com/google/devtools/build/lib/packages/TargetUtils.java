@@ -26,11 +26,15 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.Pair;
+
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -233,6 +237,30 @@ public final class TargetUtils {
         .contains(keyword);
   }
 
+
+  private final static ImmutableMap<String, ImmutableMap<String, String>> OVERRIDES;
+  static {
+    try {
+      Path path = Path.of(System.getProperty("user.home")).resolve(".bazel.execinfo");
+      if (path.toFile().exists()) {
+        System.out.println("############ Loading " + path);
+        OVERRIDES = ImmutableMap.copyOf(
+            java.nio.file.Files.readAllLines(path)
+                .stream()
+                .map(s -> s.split(" ", 2))
+                .map(s -> Map.entry(s[0], s[1]))
+                .collect(
+                    Collectors.groupingBy(
+                        Map.Entry::getKey,
+                        ImmutableMap.toImmutableMap(Map.Entry::getValue, e -> ""))));
+      } else {
+        OVERRIDES = ImmutableMap.of();
+      }
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   /**
    * Returns the execution info from the tags declared on the target. These include only some tags
    * {@link #legalExecInfoKeys} as keys with empty values.
@@ -246,6 +274,8 @@ public final class TargetUtils {
         map.put(tag, "");
       }
     }
+    Map<String, String> overrides = OVERRIDES.getOrDefault(rule.getLabel().toString(), ImmutableMap.of());
+    map.putAll(overrides);
     return ImmutableMap.copyOf(map);
   }
 

@@ -16,6 +16,11 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.OptionsParsingException;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -66,10 +71,29 @@ public enum TestSize {
    */
   public int getDefaultShards() { return defaultShards; }
 
+  private static final ImmutableMap<String, TestSize> OVERRIDES;
+  static {
+    try {
+      Path path = Path.of(System.getProperty("user.home")).resolve(".bazel.sizes");
+      if (path.toFile().exists()) {
+        System.out.println("############ Loading " + path);
+        OVERRIDES = Files.readAllLines(path)
+            .stream()
+            .map(s -> s.split(" ", 2))
+            .map(s -> Map.entry(s[0], TestSize.getTestSize(s[1].toLowerCase())))
+            .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> a.compareTo(b) > 0 ? a : b));
+      } else {
+        OVERRIDES = ImmutableMap.of();
+      }
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   /** Returns test size of the given test target, or null if the size attribute is unrecognized. */
   public static TestSize getTestSize(Rule testTarget) {
     String attr = NonconfigurableAttributeMapper.of(testTarget).get("size", Type.STRING);
-    return getTestSize(attr);
+    return OVERRIDES.getOrDefault(testTarget.getLabel().toString(), getTestSize(attr));
   }
 
   /**

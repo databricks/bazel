@@ -32,10 +32,14 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction.Code;
+
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Container for test target properties available to the

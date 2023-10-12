@@ -1,6 +1,7 @@
 package com.google.devtools.build.lib.sandbox.cgroups.v1;
 
 import com.google.devtools.build.lib.sandbox.cgroups.Controller;
+import com.google.devtools.build.lib.sandbox.cgroups.Monitor;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -11,6 +12,7 @@ import java.util.stream.Collectors;
 
 public class LegacyMemory implements Controller.Memory {
     private final Path path;
+    private volatile Monitor monitor;
 
     @Override
     public Path getPath() {
@@ -49,5 +51,16 @@ public class LegacyMemory implements Controller.Memory {
     @Override
     public long maxUsage() throws IOException {
         return Long.parseLong(Files.readString(path.resolve("memory.max_usage_in_bytes")).trim());
+    }
+
+    public Monitor monitor() throws IOException {
+        if (this.monitor == null) {
+            synchronized (this) {
+                if (this.monitor == null) {
+                    this.monitor = new Monitor(this);
+                }
+            }
+        }
+        return this.monitor;
     }
 }

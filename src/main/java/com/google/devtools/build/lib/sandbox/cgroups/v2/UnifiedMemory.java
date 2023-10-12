@@ -1,6 +1,7 @@
 package com.google.devtools.build.lib.sandbox.cgroups.v2;
 
 import com.google.devtools.build.lib.sandbox.cgroups.Controller;
+import com.google.devtools.build.lib.sandbox.cgroups.Monitor;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -10,6 +11,8 @@ import java.util.stream.Collectors;
 
 public class UnifiedMemory implements Controller.Memory {
     private final Path path;
+    private volatile Monitor monitor;
+
     public UnifiedMemory(Path path) {
         this.path = path;
     }
@@ -50,8 +53,19 @@ public class UnifiedMemory implements Controller.Memory {
         // Return -1 in that case, to signal its absence
         // Ref. https://github.com/torvalds/linux/commit/8e20d4b332660a32e842e20c34cfc3b3456bc6dc
         if (path.resolve("memory.peak").toFile().exists()) {
-            return Long.parseLong(Files.readString(path.resolve("memory.max")).trim());
+            return Long.parseLong(Files.readString(path.resolve("memory.peak")).trim());
         }
         return -1;
+    }
+
+    public Monitor monitor() throws IOException {
+        if (this.monitor == null) {
+            synchronized (this) {
+                if (this.monitor == null) {
+                    this.monitor = new Monitor(this);
+                }
+            }
+        }
+        return this.monitor;
     }
 }

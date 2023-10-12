@@ -338,6 +338,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     Optional<VirtualCGroup> cgroup = getCgroup(spawn, context);
     if (cgroup.isPresent()) {
+      cgroup.get().memory().monitor().start(1, ImmutableSet.copyOf(sandboxOptions.memoryMonitored));
       commandLineBuilder.setCgroupsDirs(
           cgroup.get().paths().stream()
             .map(p -> fileSystem.getPath(p.toString()))
@@ -557,6 +558,9 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       if (limit > 0) stats.append("limit_in_bytes").append(" ").append(limit).append("\n");
       if (kills > 0) stats.append("oom_kills").append(" ").append(kills).append("\n");
 
+      for (Map.Entry<String, Long> stat : cgroup.get().memory().monitor().stop().entrySet()) {
+        stats.append(stat.getKey()).append(" ").append(stat.getValue()).append("\n");
+      }
       Profiler.instance().logEventAtTime(now, ProfilerTask.SANDBOX_MEMORY_INFO, stats.toString());
     }
   }

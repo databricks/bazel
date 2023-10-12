@@ -49,17 +49,8 @@ public interface Controller {
         void setMaxBytes(long bytes) throws IOException;
         long getMaxBytes() throws IOException;
         long oomKills() throws IOException;
-
         long maxUsage() throws IOException;
-
-        default String getStats() throws IOException {
-            String stats = Controller.super.getStats();
-            long maxUsage = this.maxUsage();
-            if (maxUsage > 0) {
-                return stats.strip() + "\n" + "max_usage_in_bytes " + maxUsage;
-            }
-            return stats;
-        }
+        Monitor monitor() throws IOException;
     }
     interface Cpu extends Controller {
         void setCpus(float cpus) throws IOException;

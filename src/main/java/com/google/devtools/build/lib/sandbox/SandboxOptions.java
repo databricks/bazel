@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.TriStateConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -395,6 +396,16 @@ public class SandboxOptions extends OptionsBase {
               + " as /tmp rather thansharing /tmp with the host filesystem. Use"
               + " --sandbox_add_mount_pair=/tmp to keep seeing the host's /tmp in all sandboxes.")
   public boolean sandboxHermeticTmp;
+
+  @Option(
+    name = "experimental_sandbox_resources_monitor",
+    defaultValue = "",
+    documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+    effectTags = {OptionEffectTag.EXECUTION},
+    converter = Converters.CommaSeparatedOptionListConverter.class,
+    help =
+      "Enables active monitoring of the values in the memory.stat interface of cgroups.")
+  public List<String> memoryMonitored;
 
   @Option(
       name = "experimental_sandbox_memory_limit_mb",

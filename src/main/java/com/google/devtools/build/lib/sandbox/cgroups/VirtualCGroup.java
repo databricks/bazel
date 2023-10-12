@@ -44,6 +44,8 @@ public abstract class VirtualCGroup {
     private static final File PROC_SELF_MOUNTS_PATH = new File("/proc/self/mounts");
     private static final File PROC_SELF_CGROUP_PATH = new File("/proc/self/cgroup");
 
+    private static final Monitor.MonitorFactory factory = new Monitor.MonitorFactory();
+
     @Nullable
     private static volatile VirtualCGroup instance;
 
@@ -148,7 +150,7 @@ public abstract class VirtualCGroup {
                         case "memory":
                             if (memory != null) continue;
                             logger.atInfo().log("Found cgroup v2 memory controller at %s", cgroup);
-                            memory = new UnifiedMemory(cgroup);
+                            memory = new UnifiedMemory(cgroup, factory);
                             break;
                         case "cpu":
                             if (cpu != null) continue;
@@ -174,7 +176,7 @@ public abstract class VirtualCGroup {
                         case "memory":
                             if (memory != null) continue;
                             logger.atInfo().log("Found cgroup v1 memory controller at %s", cgroup);
-                            memory = new LegacyMemory(cgroup);
+                            memory = new LegacyMemory(cgroup, factory);
                             break;
                         case "cpu":
                             if (cpu != null) continue;
@@ -212,7 +214,9 @@ public abstract class VirtualCGroup {
             copyControllersToSubtree(memory().getPath());
             Path cgroup = memory().getPath().resolve(name);
             cgroup.toFile().mkdirs();
-            memory = memory().isLegacy() ? new LegacyMemory(cgroup) : new UnifiedMemory(cgroup);
+            memory = memory().isLegacy() ?
+                new LegacyMemory(cgroup, factory) :
+                new UnifiedMemory(cgroup, factory);
             paths.add(cgroup);
         }
         if (cpu() != null && cpu().getPath() != null) {
@@ -264,6 +268,10 @@ public abstract class VirtualCGroup {
             if (usage > 0) stats.append("max_usage_in_bytes").append(" ").append(usage).append("\n");
             if (limit > 0) stats.append("limit_in_bytes").append(" ").append(limit).append("\n");
             if (kills > 0) stats.append("oom_kills").append(" ").append(kills).append("\n");
+
+            for (Map.Entry<String, Long> stat : memory().monitor().stop().entrySet()) {
+                stats.append(stat.getKey()).append(" ").append(stat.getValue()).append("\n");
+            }
 
             Profiler.instance().logEventAtTime(now, ProfilerTask.SANDBOX_MEMORY_INFO, stats.toString());
         }

@@ -1,17 +1,19 @@
 package com.google.devtools.build.lib.sandbox.cgroups.v2;
 
 import com.google.devtools.build.lib.sandbox.cgroups.Controller;
+import com.google.devtools.build.lib.sandbox.cgroups.Monitor;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 public class UnifiedMemory implements Controller.Memory {
     private final Path path;
-    public UnifiedMemory(Path path) {
+    private volatile Monitor monitor;
+
+    public UnifiedMemory(Path path, Monitor.MonitorFactory factory) {
         this.path = path;
+        this.monitor = factory.create(this);
     }
 
     @Override
@@ -53,5 +55,10 @@ public class UnifiedMemory implements Controller.Memory {
             return Long.parseLong(Files.readString(path.resolve("memory.peak")).trim());
         }
         return -1;
+    }
+
+    @Override
+    public Monitor monitor() {
+        return this.monitor;
     }
 }

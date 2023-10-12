@@ -409,6 +409,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     Optional<VirtualCGroup> cgroup = getCgroup(spawn, context);
     if (cgroup.isPresent()) {
+      cgroup.get().memory().monitor().start(sandboxOptions.memoryMonitored);
       commandLineBuilder.setCgroupsDirs(
           cgroup.get().paths().stream()
             .map(p -> fileSystem.getPath(p.toString()))

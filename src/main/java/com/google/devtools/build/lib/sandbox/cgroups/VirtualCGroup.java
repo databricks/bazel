@@ -48,6 +48,8 @@ public abstract class VirtualCGroup {
     private static final File PROC_SELF_MOUNTS_PATH = new File("/proc/self/mounts");
     private static final File PROC_SELF_CGROUP_PATH = new File("/proc/self/cgroup");
 
+    private static final Monitor.MonitorFactory factory = new Monitor.MonitorFactory();
+
     @Nullable
     private static volatile VirtualCGroup instance;
 
@@ -152,7 +154,7 @@ public abstract class VirtualCGroup {
                         case "memory":
                             if (memory != null) continue;
                             logger.atInfo().log("Found cgroup v2 memory controller at %s", cgroup);
-                            memory = new UnifiedMemory(cgroup);
+                            memory = new UnifiedMemory(cgroup, factory);
                             break;
                         case "cpu":
                             if (cpu != null) continue;
@@ -178,7 +180,7 @@ public abstract class VirtualCGroup {
                         case "memory":
                             if (memory != null) continue;
                             logger.atInfo().log("Found cgroup v1 memory controller at %s", cgroup);
-                            memory = new LegacyMemory(cgroup);
+                            memory = new LegacyMemory(cgroup, factory);
                             break;
                         case "cpu":
                             if (cpu != null) continue;
@@ -216,7 +218,9 @@ public abstract class VirtualCGroup {
             copyControllersToSubtree(memory().getPath());
             Path cgroup = memory().getPath().resolve(name);
             cgroup.toFile().mkdirs();
-            memory = memory().isLegacy() ? new LegacyMemory(cgroup) : new UnifiedMemory(cgroup);
+            memory = memory().isLegacy() ?
+                new LegacyMemory(cgroup, factory) :
+                new UnifiedMemory(cgroup, factory);
             paths.add(cgroup);
         }
         if (cpu() != null && cpu().getPath() != null) {
@@ -265,7 +269,9 @@ public abstract class VirtualCGroup {
               }
               stats.put("usage_usec", String.valueOf(cpuacct().getUsage() / 1000));
           }
-
+          for (Map.Entry<String, Long> stat : memory().monitor().stop().entrySet()) {
+            stats.put(stat.getKey(), String.valueOf(stat.getValue()));
+          }
           writeStats(jsonWriter, timestamp, "CPU stats (Sandbox)",  stats);
         }
         if (memory() != null) {

@@ -562,6 +562,37 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         stats.append(stat.getKey()).append(" ").append(stat.getValue()).append("\n");
       }
       Profiler.instance().logEventAtTime(now, ProfilerTask.SANDBOX_MEMORY_INFO, stats.toString());
+
+      if (kills > 0) {
+          reporter.handle(
+              Event.warn(
+                  String.format(
+                      "%s (%s): detected %d OOM %s in cgroup. Limit was %s MB%s",
+                      originalSpawn.getTargetLabel(),
+                      originalSpawn.getMnemonic(),
+                      kills,
+                      kills > 1 ? "kills" : "kill",
+                      limit / 1024 / 1024,
+                      usage > 0 ? ", but record usage >= " + usage / 1024 / 1024 + " MB." : ".")));
+      } else if (usage >= limit * 0.8) {
+        reporter.handle(
+            Event.warn(
+                String.format(
+                    "%s (%s): usage was more than 80%% of the limit. Limit was %s MB%s",
+                    originalSpawn.getTargetLabel(),
+                    originalSpawn.getMnemonic(),
+                    limit / 1024 / 1024,
+                    usage > 0 ? ", max recorded usage " + usage / 1024 / 1024 + " MB." : ".")));
+      } else if (usage <= limit * 0.3) {
+        reporter.handle(
+            Event.warn(
+                String.format(
+                    "%s (%s): usage was less then 30%% of the limit. Limit was %s MB%s",
+                    originalSpawn.getTargetLabel(),
+                    originalSpawn.getMnemonic(),
+                    limit / 1024 / 1024,
+                    usage > 0 ? ", max recorded usage " + usage / 1024 / 1024 + " MB." : ".")));
+      }
     }
   }
 

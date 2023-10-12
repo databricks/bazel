@@ -45,7 +45,7 @@ public interface Controller {
         return "";
     }
 
-    interface Memory extends Controller {
+    interface Memory extends Controller, Monitor.Monitorable {
         void setMaxBytes(long bytes) throws IOException;
         long getMaxBytes() throws IOException;
         long oomKills() throws IOException;

@@ -195,8 +195,8 @@ rule_with_transition = rule(
     cfg = my_transition,
     attrs = {
         "src": attr.label(allow_files = True),
-        "_allowlist_function_transition":
-            attr.label(default = "@bazel_tools//tools/allowlists/function_transition_allowlist"),
+        "_whitelist_function_transition":
+            attr.label(default = "@bazel_tools//tools/whitelists/function_transition_whitelist"),
     },
 )
 EOF

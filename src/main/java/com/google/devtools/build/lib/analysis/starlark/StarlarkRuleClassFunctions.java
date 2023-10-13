@@ -680,8 +680,14 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
     boolean hasFunctionTransitionAllowlist = false;
     // Check for existence of the function transition allowlist attribute.
-    if (builder.contains(FunctionSplitTransitionAllowlist.ATTRIBUTE_NAME)) {
+    if (builder.contains(FunctionSplitTransitionAllowlist.ATTRIBUTE_NAME)
+        || builder.contains(FunctionSplitTransitionAllowlist.LEGACY_ATTRIBUTE_NAME)) {
       Attribute attr = builder.getAttribute(FunctionSplitTransitionAllowlist.ATTRIBUTE_NAME);
+      Label expectedLabel = FunctionSplitTransitionAllowlist.LABEL;
+      if (attr == null) {
+        attr = builder.getAttribute(FunctionSplitTransitionAllowlist.LEGACY_ATTRIBUTE_NAME);
+        expectedLabel = FunctionSplitTransitionAllowlist.LEGACY_LABEL;
+      }
       if (!BuildType.isLabelType(attr.getType())) {
         throw Starlark.errorf("_allowlist_function_transition attribute must be a label type");
       }
@@ -693,8 +699,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       // in Bazel where it is expected to be found under @bazel_tools.
       if (!(defaultLabel
               .getPackageName()
-              .equals(FunctionSplitTransitionAllowlist.LABEL.getPackageName())
-          && defaultLabel.getName().equals(FunctionSplitTransitionAllowlist.LABEL.getName()))) {
+              .equals(expectedLabel.getPackageName())
+          && defaultLabel.getName().equals(expectedLabel.getName()))) {
         throw Starlark.errorf(
             "_allowlist_function_transition attribute (%s) does not have the expected value %s",
             defaultLabel, FunctionSplitTransitionAllowlist.LABEL);

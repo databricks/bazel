@@ -22,6 +22,9 @@ public class FunctionSplitTransitionAllowlist {
   public static final String ATTRIBUTE_NAME = "$allowlist_function_transition";
   public static final String LABEL_STR = "//tools/allowlists/function_transition_allowlist";
   public static final Label LABEL = Label.parseCanonicalUnchecked(LABEL_STR);
+  public static final String LEGACY_ATTRIBUTE_NAME = "$whitelist_function_transition";
+  public static final String LEGACY_LABEL_STR = "//tools/whitelists/function_transition_whitelist";
+  public static final Label LEGACY_LABEL = Label.parseCanonicalUnchecked(LEGACY_LABEL_STR);
 
   private FunctionSplitTransitionAllowlist() {}
 }

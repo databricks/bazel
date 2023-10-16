@@ -103,6 +103,7 @@ public class WorkerModule extends BlazeModule {
               ImmutableList.copyOf(sandboxOptions.sandboxTmpfsPath),
               ImmutableList.copyOf(sandboxOptions.sandboxWritablePath),
               sandboxOptions.memoryLimitMb,
+              env.getReporter(),
               sandboxOptions.getInaccessiblePaths(env.getRuntime().getFileSystem()),
               ImmutableList.copyOf(sandboxOptions.sandboxAdditionalMounts));
     } else {

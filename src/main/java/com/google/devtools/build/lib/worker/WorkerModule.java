@@ -100,7 +100,8 @@ public class WorkerModule extends BlazeModule {
               sandboxOptions.sandboxDebug,
               ImmutableList.copyOf(sandboxOptions.sandboxTmpfsPath),
               ImmutableList.copyOf(sandboxOptions.sandboxWritablePath),
-              sandboxOptions.memoryLimitMb);
+              sandboxOptions.memoryLimitMb,
+              env.getReporter());
     } else {
       workerSandboxOptions = null;
     }

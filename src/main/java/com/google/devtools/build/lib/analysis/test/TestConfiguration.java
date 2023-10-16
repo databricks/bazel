@@ -85,6 +85,23 @@ public class TestConfiguration extends Fragment {
     public Map<TestTimeout, Duration> testTimeout;
 
     @Option(
+        name = "experimental_test_resources",
+        defaultValue = "null",
+        converter = TestResourcesConverter.class,
+        allowMultiple = true,
+        documentationCategory = OptionDocumentationCategory.TESTING,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Override the default resources amount for tests. The expected format is"
+                + " <resource>=<value>. If a single positive float is specified as <value>"
+                + " it will override the default resources for all test sizes. If 4"
+                + " comma-separated flats are specified, they will override the resource"
+                + " amount for small, medium, large, enourmous (in that order)."
+                + " Multiple resources can be separated by colon and multiple usages"
+                + " are accumulated.")
+    public List<Map.Entry<String, Map<com.google.devtools.build.lib.packages.TestSize, Double>>> testResources;
+
+    @Option(
       name = "test_filter",
       allowMultiple = false,
       defaultValue = "null",

@@ -25,6 +25,8 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.List;
 import org.junit.Before;
@@ -130,7 +132,7 @@ public final class LinuxSandboxCommandLineBuilderTest {
             .put(bindMountSameSourceAndTarget, bindMountSameSourceAndTarget)
             .buildOrThrow();
 
-    String cgroupsDir = "/sys/fs/cgroups/something";
+    Path cgroupsDir = fileSystem.getPath("/sys/fs/cgroups/something");
 
     ImmutableList<String> expectedCommandLine =
         ImmutableList.<String>builder()
@@ -155,7 +157,7 @@ public final class LinuxSandboxCommandLineBuilderTest {
             .add("-U")
             .add("-D")
             .add("-p")
-            .add("-C", cgroupsDir)
+            .add("-C", cgroupsDir.toString())
             .add("--")
             .addAll(commandArguments)
             .build();
@@ -177,7 +179,7 @@ public final class LinuxSandboxCommandLineBuilderTest {
             .setUseFakeUsername(useFakeUsername)
             .setUseDebugMode(useDebugMode)
             .setPersistentProcess(true)
-            .setCgroupsDir(cgroupsDir)
+            .setCgroupsDirs(ImmutableSet.of(cgroupsDir))
             .build();
 
     assertThat(commandLine).containsExactlyElementsIn(expectedCommandLine).inOrder();

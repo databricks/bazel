@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.BuildConfigurationApi;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -901,4 +902,16 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
   public ImmutableSet<String> getReservedActionMnemonics() {
     return reservedActionMnemonics;
   }
+
+  public Map<String, Double> getTestResources(com.google.devtools.build.lib.packages.TestSize size) {
+    if (!buildOptions.contains(com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions.class)) {
+      return ImmutableMap.of();
+    }
+    return buildOptions
+        .get(com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions.class)
+        .testResources
+        .stream()
+        .collect(ImmutableMap.toImmutableMap(e -> e.getFirst(), e -> e.getSecond().get(size)));
+  }
+
 }

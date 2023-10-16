@@ -301,6 +301,9 @@ public class ExecutionRequirements {
   public static final String DIFFERENTIATE_WORKSPACE_CACHE =
       "internal-differentiate-workspace-cache";
 
+  /** Disables cgroups for a spawn */
+  public static final String NO_SUPPORTS_CGROUPS = "no-supports-cgroups";
+
   /**
    * Indicates that the action is compatible with path mapping, e.g., removing the configuration
    * segment from the paths of all inputs and outputs.

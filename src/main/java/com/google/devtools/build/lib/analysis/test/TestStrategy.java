@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.exec.TestXmlOutputParserException;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction.Code;
+import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
@@ -362,6 +363,7 @@ public abstract class TestStrategy implements TestActionContext {
   protected void processTestOutput(
       ActionExecutionContext actionExecutionContext,
       TestResultData testResultData,
+      TerminationStatus ts,
       String testName,
       Path testLog)
       throws IOException {
@@ -393,9 +395,10 @@ public abstract class TestStrategy implements TestActionContext {
               .getEventHandler()
               .handle(Event.of(EventKind.CANCELLED, null, testName));
         } else {
+          String message = String.format("%s (%s) (see %s)", testName, ts.toShortString(), testLog);
           actionExecutionContext
               .getEventHandler()
-              .handle(Event.of(EventKind.FAIL, null, testName + " (see " + testLog + ")"));
+              .handle(Event.of(EventKind.FAIL, null, message));
         }
       }
     }

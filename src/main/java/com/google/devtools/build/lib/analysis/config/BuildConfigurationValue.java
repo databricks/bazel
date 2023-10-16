@@ -901,4 +901,16 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
   public ImmutableSet<String> getReservedActionMnemonics() {
     return reservedActionMnemonics;
   }
+
+  public Map<String, Double> getTestResources(com.google.devtools.build.lib.packages.TestSize size) {
+    if (!buildOptions.contains(com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions.class)) {
+      return ImmutableMap.of();
+    }
+    return buildOptions
+        .get(com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions.class)
+        .testResources
+        .stream()
+        .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, e -> e.getValue().get(size)));
+  }
+
 }

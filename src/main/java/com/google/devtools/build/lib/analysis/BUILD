@@ -1621,6 +1621,7 @@ java_library(
         ":config/invalid_configuration_exception",
         ":config/run_under",
         ":platform_options",
+        ":test/test_configuration",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
@@ -1628,6 +1629,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
@@ -2606,7 +2608,7 @@ java_library(
 
 java_library(
     name = "test/test_configuration",
-    srcs = ["test/TestConfiguration.java"],
+    srcs = ["test/TestConfiguration.java", "test/TestResourcesConverter.java"],
     deps = [
         ":config/build_options",
         ":config/core_option_converters",

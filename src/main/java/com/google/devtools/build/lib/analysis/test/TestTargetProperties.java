@@ -92,6 +92,21 @@ public class TestTargetProperties {
     Map<String, String> executionInfo = Maps.newLinkedHashMap();
     executionInfo.putAll(TargetUtils.getExecutionInfo(rule));
 
+    Map<String, Double> requestedResources;
+    try {
+      requestedResources = parseTags(ruleContext.getLabel(), executionInfo);
+    } catch (UserExecException e) {
+      requestedResources = new HashMap<>();
+    }
+
+    Map<String, Double> testResources = ruleContext.getConfiguration().getTestResources(size);
+    for (Map.Entry<String, Double> request: testResources.entrySet()) {
+      if (requestedResources.containsKey(request.getKey())) {
+        continue;
+      }
+      executionInfo.put(String.format("resources:%s:%f", request.getKey(), request.getValue()), "");
+    }
+
     boolean incompatibleExclusiveTestSandboxed = false;
 
     testConfiguration = ruleContext.getFragment(TestConfiguration.class);

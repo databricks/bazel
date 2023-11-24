@@ -978,4 +978,35 @@ EOF
   grep "testvalue" out.txt || fail "Did not find the platform value"
 }
 
+function test_databricks_engflow_test_pools() {
+  local -r pkg=${FUNCNAME[0]}
+  mkdir $pkg || fail "mkdir $pkg"
+
+  cat > ${pkg}/true.sh <<EOF
+true
+EOF
+chmod u+x ${pkg}/true.sh
+
+  cat > ${pkg}/BUILD <<EOF
+sh_test(
+  name  = "a",
+  srcs  = ["true.sh"],
+  exec_properties = {
+    "test.Pool": "manual",
+  },
+)
+
+sh_test(
+  name  = "b",
+  srcs  = ["true.sh"],
+  size = "large",
+)
+EOF
+
+  bazel test ${pkg}:a ${pkg}:b --databricks_engflow_test_pools=one,two,three,four --execution_log_json_file out.txt &> $TEST_log || fail "Test execution failed"
+  grep "Pool" out.txt || fail "Pool key not found"
+  grep "manual" out.txt || fail "manual prop not found"
+  grep "three" out.txt || fail "three prop not found"
+}
+
 run_suite "exec group test"

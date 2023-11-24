@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.test.CoverageConfiguration.CoverageOptions;
 import com.google.devtools.build.lib.analysis.test.TestShardingStrategy.ShardingStrategyConverter;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.DatabricksEngflowTestPool;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.util.Pair;
@@ -85,6 +86,19 @@ public class TestConfiguration extends Fragment {
                 + "short, moderate, long and eternal (in that order). In either form, a value of "
                 + "-1 tells blaze to use its default timeouts for that category.")
     public Map<TestTimeout, Duration> testTimeout;
+
+    @Option(
+      name = "databricks_engflow_test_pools",
+      defaultValue = "null",
+      converter = DatabricksEngflowTestPool.DatabricksEngflowTestPoolConverter.class,
+      documentationCategory = OptionDocumentationCategory.TESTING,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help = "DATABRICKS ONLY: Override the default Engflow Remote Execution worker pool for test sizes. " +
+              "This is done by setting the Pool execution property of TestRunner actions. This has LESS precedence " +
+              "than targets and platforms that set the Pool property." +
+              "If a single string is specified it will override all sizes. If 4 comma-separated strings " +
+              "are specified, they will override the pools for small, medium, large and enormous (in that order).")
+    public Map<TestSize, DatabricksEngflowTestPool> databricksEngflowTestPools;
 
     @Option(
         name = "default_test_resources",
@@ -434,6 +448,10 @@ public class TestConfiguration extends Fragment {
 
   public boolean checkShardingSupport() {
     return options.checkShardingSupport;
+  }
+
+  public Map<TestSize, DatabricksEngflowTestPool> getDatabricksEngflowTestPools() {
+    return options.databricksEngflowTestPools;
   }
 
   /**

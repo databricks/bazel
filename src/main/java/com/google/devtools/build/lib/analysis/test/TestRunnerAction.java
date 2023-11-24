@@ -65,6 +65,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.DatabricksEngflowTestPool;
+import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction;
@@ -1073,6 +1075,27 @@ public class TestRunnerAction extends AbstractAction
   @Override
   public NestedSet<Artifact> getPossibleInputsForTesting() {
     return getInputs();
+  }
+
+  private static final String ENGFLOW_POOL_EXEC_PROPERTY = "Pool";
+
+  /**
+   * Databricks override: make sure to send actions to the correct Bazel Remote execution pools based on test sizes.
+   */
+  @Override
+  public ImmutableMap<String, String> getExecProperties() {
+    ImmutableMap<String, String> execProperties = super.getExecProperties();
+    Map<TestSize, DatabricksEngflowTestPool> pools = testConfiguration.getDatabricksEngflowTestPools();
+    if (execProperties.containsKey(ENGFLOW_POOL_EXEC_PROPERTY) || pools == null) {
+      return execProperties;
+    }
+    return ImmutableMap.<String, String>builder()
+            .putAll(execProperties)
+            .put(
+              ENGFLOW_POOL_EXEC_PROPERTY,
+              pools.get(testProperties.getSize()).getPool()
+            )
+            .build();
   }
 
   /** The same set of paths as the parent test action, resolved against a given exec root. */

@@ -93,6 +93,8 @@ public class TestConfiguration extends Fragment {
       documentationCategory = OptionDocumentationCategory.TESTING,
       effectTags = {OptionEffectTag.EXECUTION},
       help = "DATABRICKS ONLY: Override the default Engflow Remote Execution worker pool for test sizes. " +
+              "This is done by setting the Pool execution property of TestRunner actions. This has LESS precedence " +
+              "than targets and platforms that set the Pool property." +
               "If a single string is specified it will override all sizes. If 4 comma-separated strings " +
               "are specified, they will override the pools for small, medium, large and enormous (in that order).")
     public Map<TestSize, DatabricksEngflowTestPool> databricksEngflowTestPools;

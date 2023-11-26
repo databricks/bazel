@@ -771,7 +771,7 @@ public class ExecutionTool {
 
     // Gather configurations to consider.
     ImmutableSet<BuildConfigurationValue> targetConfigs;
-    if (targetsToBuild.isEmpty()) {
+    if (true || targetsToBuild.isEmpty()) {
       targetConfigs = ImmutableSet.of(configuration);
     } else {
       // Collect the configuration of each top-level requested target. These may be different than

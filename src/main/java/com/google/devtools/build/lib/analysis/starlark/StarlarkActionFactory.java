@@ -100,7 +100,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
   private static final ResourceSet DEFAULT_RESOURCE_SET = ResourceSet.createWithRamCpu(250, 1);
   private static final Set<String> validResources =
-      new HashSet<>(Arrays.asList("cpu", "memory", "local_test"));
+      new HashSet<>(Arrays.asList(ResourceSet.CPU, ResourceSet.MEMORY, "local_test"));
 
   public StarlarkActionFactory(StarlarkRuleContext context) {
     this.context = context;
@@ -765,8 +765,10 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         }
 
         return ResourceSet.create(
-            getNumericOrDefault(resourceSetMapRaw, "memory", DEFAULT_RESOURCE_SET.getMemoryMb()),
-            getNumericOrDefault(resourceSetMapRaw, "cpu", DEFAULT_RESOURCE_SET.getCpuUsage()),
+            getNumericOrDefault(
+                resourceSetMapRaw, ResourceSet.MEMORY, DEFAULT_RESOURCE_SET.getMemoryMb()),
+            getNumericOrDefault(
+                resourceSetMapRaw, ResourceSet.CPU, DEFAULT_RESOURCE_SET.getCpuUsage()),
             (int)
                 getNumericOrDefault(
                     resourceSetMapRaw,

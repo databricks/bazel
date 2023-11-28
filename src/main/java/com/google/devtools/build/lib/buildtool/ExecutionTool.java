@@ -117,6 +117,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -963,18 +964,21 @@ public class ExecutionTool {
   public static void configureResourceManager(ResourceManager resourceMgr, BuildRequest request) {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     resourceMgr.setPrioritizeLocalActions(options.prioritizeLocalActions);
-    ImmutableMap<String, Float> extraResources =
-        options.localExtraResources.stream()
+    ImmutableMap<String, Double> cpuRam =
+        ImmutableMap.of(
+            ResourceSet.CPU,
+            options.localCpuResources,
+            ResourceSet.MEMORY,
+            options.localRamResources);
+    ImmutableMap<String, Double> resources =
+        Stream.concat(options.localExtraResources.stream(), cpuRam.entrySet().stream())
             .collect(
                 ImmutableMap.toImmutableMap(
                     Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v2));
 
     resourceMgr.setAvailableResources(
         ResourceSet.create(
-            options.localRamResources,
-            options.localCpuResources,
-            extraResources,
-            options.usingLocalTestJobs() ? options.localTestJobs : Integer.MAX_VALUE));
+            resources, options.usingLocalTestJobs() ? options.localTestJobs : Integer.MAX_VALUE));
   }
 
   /**

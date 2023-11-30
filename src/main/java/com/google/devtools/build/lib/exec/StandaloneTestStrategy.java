@@ -271,6 +271,10 @@ public class StandaloneTestStrategy extends TestStrategy {
       dataBuilder.addFailedLogs(renamedTestLog.toString());
     }
 
+    if (!result.spawnResults().isEmpty()) {
+      dataBuilder.setExitCode(result.spawnResults().get(0).exitCode());
+    }
+
     // Add the test log to the output
     TestResultData data = dataBuilder.build();
     actionExecutionContext

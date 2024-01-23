@@ -132,7 +132,7 @@ public final class OptionsParser {
     for (String arg = argQueue.pollFirst(); arg != null; arg = argQueue.pollFirst()) {
       switch (arg) {
         case "--javacopts":
-          readJavacopts(javacOpts, argQueue);
+          readJavacopts(javacOpts, argQueue, !bootClassPath.isEmpty());
           sourcePathFromJavacOpts();
           break;
         case "--direct_dependencies":
@@ -183,6 +183,11 @@ public final class OptionsParser {
           break;
         case "--bootclasspath":
           collectFlagArguments(bootClassPath, argQueue, "-");
+          if (!bootClassPath.isEmpty() && !javacOpts.isEmpty()) {
+            Deque<String> orginal = new ArrayDeque<>(this.javacOpts);
+            this.javacOpts.clear();
+            readJavacopts(this.javacOpts, orginal, false);
+          }
           break;
         case "--system":
           system = getArgument(argQueue, arg);
@@ -296,11 +301,32 @@ public final class OptionsParser {
    * Returns a list of javacopts. Reads options until a terminating {@code "--"} is reached, to
    * support parsing javacopts that start with {@code --} (e.g. --release).
    */
-  private static void readJavacopts(List<String> javacopts, Deque<String> argumentDeque) {
+  private static void readJavacopts(List<String> javacopts, Deque<String> argumentDeque, boolean hasbootClassPath) {
+    String release = null;
     while (!argumentDeque.isEmpty()) {
       String arg = argumentDeque.pollFirst();
       if (arg.equals("--")) {
+        if (release != null) {
+          // Building with --release 8 does not work when the code uses sun.misc
+          // so if the bootclasspath is provided, we replace the flag with -source + -target
+          // which is equivalent to --release when the bootclasspath is provided
+          // Ref. https://bugs.openjdk.org/browse/JDK-8206937
+          if (release.equals("8")) {
+            javacopts.add("-source");
+            javacopts.add(release);
+            javacopts.add("-target");
+          } else {
+            javacopts.add("--release");
+          }
+          javacopts.add(release);
+        }
         return;
+      }
+      if (arg.equals("--release") && !argumentDeque.isEmpty() && hasbootClassPath) {
+        if (!argumentDeque.getFirst().equals("--")) {
+          release = argumentDeque.pollFirst();
+          continue;
+        }
       }
       javacopts.add(arg);
     }

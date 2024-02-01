@@ -102,10 +102,15 @@ class BuildResultPrinter {
     // Splits aspects based on whether they are validation aspects.
     final ImmutableSet<AspectKey> aspectsToPrint;
     final ImmutableList<AspectKey> validationAspects;
+    final ImmutableSet<String> aspectsToIgnore =
+        ImmutableSet.copyOf(request.getBuildOptions().hideAspectResults);
+    final ImmutableSet<AspectKey> filteredAspects = aspects.keySet().stream()
+        .filter(k -> !aspectsToIgnore.contains(k.getAspectClass().getName()))
+        .collect(ImmutableSet.toImmutableSet());
     if (request.useValidationAspect()) {
       var aspectsToPrintBuilder = ImmutableSet.<AspectKey>builder();
       var validationAspectsBuilder = ImmutableList.<AspectKey>builder();
-      for (AspectKey key : aspects.keySet()) {
+      for (AspectKey key : filteredAspects) {
         if (Objects.equals(
             key.getAspectClass().getName(), AspectCollection.VALIDATION_ASPECT_NAME)) {
           validationAspectsBuilder.add(key);
@@ -116,7 +121,7 @@ class BuildResultPrinter {
       aspectsToPrint = aspectsToPrintBuilder.build();
       validationAspects = validationAspectsBuilder.build();
     } else {
-      aspectsToPrint = aspects.keySet();
+      aspectsToPrint = filteredAspects;
       validationAspects = ImmutableList.of();
     }
 

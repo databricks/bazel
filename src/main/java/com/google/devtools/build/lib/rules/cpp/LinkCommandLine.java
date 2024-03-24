@@ -891,7 +891,7 @@ public final class LinkCommandLine extends CommandLine {
     Artifact inputArtifact = input.getArtifact();
     PathFragment libDir = inputArtifact.getExecPath().getParentDirectory();
     if (rpathRoot != null
-        && !libDir.equals(solibDir)
+        && !solibDir.equals(libDir)
         && (runtimeSolibDir == null || !runtimeSolibDir.equals(libDir))) {
       String dotdots = "";
       PathFragment commonParent = solibDir;

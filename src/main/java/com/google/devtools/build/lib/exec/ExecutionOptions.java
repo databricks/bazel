@@ -410,6 +410,15 @@ public class ExecutionOptions extends OptionsBase {
   public Duration experimentalCpuLoadSchedulingWindowSize;
 
   @Option(
+      name = "experimental_test_priority_file",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "If non-empty, adjusts priority of specific test targets according to file.")
+  public String experimentalTestPriorityFile;
+
+  @Option(
       name = "local_test_jobs",
       defaultValue = "auto",
       documentationCategory = OptionDocumentationCategory.TESTING,

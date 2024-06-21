@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
@@ -101,6 +103,7 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -962,7 +965,7 @@ public class ExecutionTool {
   }
 
   @VisibleForTesting
-  public static void configureResourceManager(ResourceManager resourceMgr, BuildRequest request) {
+  public void configureResourceManager(ResourceManager resourceMgr, BuildRequest request) {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     resourceMgr.setPrioritizeLocalActions(options.prioritizeLocalActions);
     ImmutableMap<String, Double> cpuRam =
@@ -991,6 +994,35 @@ public class ExecutionTool {
         options.experimentalCpuLoadScheduling,
         options.experimentalCpuLoadSchedulingWindowSize);
     resourceMgr.scheduleCpuLoadWindowUpdate();
+
+    if (options.experimentalTestPriorityFile.isEmpty()) {
+      resourceMgr.setTestPriorityMap(null);
+    } else {
+      // Similar logic as TargetPatternsHelper should work for absolute or relative file names.
+      Path residuePath =
+          env.getWorkingDirectory().getRelative(options.experimentalTestPriorityFile);
+      try {
+        Map<String, Integer> priorities =
+            FileSystemUtils.readLines(residuePath, UTF_8).stream()
+                .map(s -> parseTestPriority(s))
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v2));
+        resourceMgr.setTestPriorityMap(priorities);
+      } catch (IOException e) {
+        throw new RuntimeException(
+          String.format("Problem when reading from experimental_test_priority_file: %s", options.experimentalTestPriorityFile),
+          e);
+      }
+    }
+  }
+
+  private static Map.Entry<String, Integer> parseTestPriority(String x) {
+    String[] parts = x.split(" ", 2);
+    if(parts.length != 2) {
+      throw new IllegalArgumentException(String.format("test priority file entry line %s must have a space", x));
+    }
+    int priority = Integer.parseInt(parts[0]);
+    String testLabel = parts[1]; // TODO: parse as a label doing appropriate canonicalization
+    return new java.util.AbstractMap.SimpleEntry<String, Integer>(testLabel, priority);
   }
 
   /**

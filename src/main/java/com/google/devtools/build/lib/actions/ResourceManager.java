@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.worker.WorkerPool;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -174,16 +173,14 @@ public class ResourceManager implements ResourceEstimator {
   // be initialized to 1 during creation in the acquire() method.
   // We use LinkedList because we will need to remove elements from the middle frequently in the
   // middle of iterating through the list.
-  @SuppressWarnings("JdkObsolete")
-  private final Deque<Pair<ResourceRequest, LatchWithWorker>> localRequests = new LinkedList<>();
+  private SimpleDeque<Pair<ResourceRequest, LatchWithWorker>> localRequests =
+    SimpleDeque.of(new LinkedList<>());
 
-  @SuppressWarnings("JdkObsolete")
-  private final Deque<Pair<ResourceRequest, LatchWithWorker>> dynamicWorkerRequests =
-      new LinkedList<>();
+  private final SimpleDeque<Pair<ResourceRequest, LatchWithWorker>> dynamicWorkerRequests =
+    SimpleDeque.of(new LinkedList<>());
 
-  @SuppressWarnings("JdkObsolete")
-  private final Deque<Pair<ResourceRequest, LatchWithWorker>> dynamicStandaloneRequests =
-      new LinkedList<>();
+  private final SimpleDeque<Pair<ResourceRequest, LatchWithWorker>> dynamicStandaloneRequests =
+    SimpleDeque.of(new LinkedList<>());
 
   private WorkerPool workerPool;
 
@@ -198,6 +195,8 @@ public class ResourceManager implements ResourceEstimator {
 
   // Used local test count. Corresponds to the local test count definition in the ResourceSet class.
   private int usedLocalTestCount;
+
+  private Map<String, Integer> testPriorities = null;
 
   /** If set, local-only actions are given priority over dynamically run actions. */
   private boolean prioritizeLocalActions;
@@ -306,6 +305,35 @@ public class ResourceManager implements ResourceEstimator {
     Preconditions.checkNotNull(resources);
     resetResourceUsage();
     availableResources = resources;
+  }
+
+  private Integer requestToPriority(Pair<ResourceRequest, LatchWithWorker> pairRequest) {
+    ResourceRequest request = pairRequest.first;
+    // Non-test actions have the highest priority
+    if (request.getOwner().getMnemonic() != "TestRunner") {
+      return Integer.MIN_VALUE;
+    }
+    // Use getUnambiguousCanonicalForm?
+    String testLabelAsString = request.getOwner().getOwner().getLabel().getCanonicalForm();
+    return this.testPriorities.getOrDefault(testLabelAsString, 0);
+  }
+
+  public synchronized void setTestPriorityMap(@Nullable Map<String, Integer> priorities) {
+    if (priorities == null && this.testPriorities == null) {
+      // This is mostly being overprotective so that if the testPriorities feature is
+      // not being used at all then can't even throw an exception.
+      return;
+    }
+    if (!localRequests.isEmpty()) {
+      throw new IllegalStateException("Priorities cannot be changed in the middle of an active build.");
+    }
+    this.testPriorities = priorities;
+    if (this.testPriorities != null) {
+      this.localRequests = new PrioritizedDeque<Pair<ResourceRequest, LatchWithWorker>>(
+        request -> requestToPriority(request));
+    } else {
+      this.localRequests = SimpleDeque.of(new LinkedList<Pair<ResourceRequest, LatchWithWorker>>());
+    }
   }
 
   public synchronized void scheduleCpuLoadWindowUpdate() {
@@ -588,7 +616,7 @@ public class ResourceManager implements ResourceEstimator {
   }
 
   private synchronized void processWaitingThreads(
-      Deque<Pair<ResourceRequest, LatchWithWorker>> requests)
+      SimpleDeque<Pair<ResourceRequest, LatchWithWorker>> requests)
       throws IOException, InterruptedException {
     Iterator<Pair<ResourceRequest, LatchWithWorker>> iterator = requests.iterator();
     while (iterator.hasNext()) {

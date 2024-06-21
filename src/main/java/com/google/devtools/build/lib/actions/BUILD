@@ -369,6 +369,8 @@ java_library(
     srcs = [
         "MachineLoadProvider.java",
         "ResourceManager.java",
+        "PrioritizedDeque.java",
+        "SimpleDeque.java",
     ],
     deps = [
         ":actions",

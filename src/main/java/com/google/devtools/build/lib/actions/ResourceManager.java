@@ -315,10 +315,13 @@ public class ResourceManager implements ResourceEstimator {
     }
     // Use getUnambiguousCanonicalForm?
     String testLabelAsString = request.getOwner().getOwner().getLabel().getCanonicalForm();
-    return this.testPriorities.getOrDefault(testLabelAsString, 0);
+    Integer priority = this.testPriorities.getOrDefault(testLabelAsString, 0);
+    System.out.println("Test '" + testLabelAsString + "' has priority " + priority);
+    return priority;
   }
 
   public synchronized void setTestPriorityMap(@Nullable Map<String, Integer> priorities) {
+    System.out.println("Setting test priorities");
     if (priorities == null && this.testPriorities == null) {
       // This is mostly being overprotective so that if the testPriorities feature is
       // not being used at all then can't even throw an exception.

@@ -998,6 +998,7 @@ public class ExecutionTool {
     if (options.experimentalTestPriorityFile.isEmpty()) {
       resourceMgr.setTestPriorityMap(null);
     } else {
+      System.out.println("Reading test priorities from " + options.experimentalTestPriorityFile);
       // Similar logic as TargetPatternsHelper should work for absolute or relative file names.
       Path residuePath =
           env.getWorkingDirectory().getRelative(options.experimentalTestPriorityFile);

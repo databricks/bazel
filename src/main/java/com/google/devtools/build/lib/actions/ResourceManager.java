@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.worker.WorkerPool;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -45,6 +46,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -308,17 +310,53 @@ public class ResourceManager implements ResourceEstimator {
     Preconditions.checkNotNull(resources);
     resetResourceUsage();
     availableResources = resources;
+    System.err.println("Initialized available resources to: " + resourceSetToString(availableResources));
+  }
+
+  // The real toString has newlines, which is too verbose
+  private String resourceSetToString(ResourceSet rs) {
+    if (rs.getResources().isEmpty()) {
+      return "<ResourceSet: None>";
+    }
+    String resources = rs.getResources().entrySet().stream()
+      .map(entry -> entry.getKey() + ": " + entry.getValue())
+      .collect(Collectors.joining(", "));
+    return String.format("<ResourceSet: %s>", resources);
+  }
+
+  private String usedResourcesToString() {
+    if (usedResources.isEmpty()) {
+      return String.format("<usedResources: None + %d ltc>", usedLocalTestCount);
+    }
+    String resources = usedResources.entrySet().stream()
+      .map(entry -> entry.getKey() + ": " + entry.getValue())
+      .collect(Collectors.joining(", "));
+    return String.format("<usedResources: %s + %d ltc>", resources, usedLocalTestCount);
+  }
+
+  private String resourceRequestToString(ResourceRequest request) {
+    return String.format(
+      "<ResourceRequest: %s, %s + %d ltc>",
+      request.getOwner().getOwner().getLabel().getCanonicalForm(),
+      resourceSetToString(request.getResourceSet()),
+      request.getResourceSet().getLocalTestCount());
+  }
+
+  private boolean isForTest(ResourceRequest request) {
+    return "TestRunner".equals(request.getOwner().getMnemonic());
   }
 
   private Integer requestToPriority(Pair<ResourceRequest, LatchWithWorker> pairRequest) {
     ResourceRequest request = pairRequest.first;
     // Non-test actions have the highest priority
-    if (request.getOwner().getMnemonic() != "TestRunner") {
+    if (!isForTest(request)) {
       return Integer.MIN_VALUE;
     }
     // Use getUnambiguousCanonicalForm?
     String testLabelAsString = request.getOwner().getOwner().getLabel().getCanonicalForm();
-    return this.testPriorities.getOrDefault(testLabelAsString, 0);
+    int priority = this.testPriorities.getOrDefault(testLabelAsString, 0);
+    System.err.println(String.format("Test %s has priority %d", testLabelAsString, priority));
+    return priority;
   }
 
   public synchronized void setTestPriorityMap(@Nullable Map<String, Integer> priorities) {
@@ -548,6 +586,10 @@ public class ResourceManager implements ResourceEstimator {
       throws IOException, InterruptedException {
     if (areResourcesAvailable(request.getResourceSet())) {
       Worker worker = incrementResources(request);
+      if (isForTest(request)) {
+        System.err.println(Instant.now().toString() + " Immediately started: " + resourceRequestToString(request));
+        System.err.println("Current total used resources: " + usedResourcesToString());
+      }
       return new LatchWithWorker(/* latch= */ null, worker);
     }
     Pair<ResourceRequest, LatchWithWorker> requestWithLatch =
@@ -609,6 +651,12 @@ public class ResourceManager implements ResourceEstimator {
     }
     runningActions--;
 
+    if (isForTest(request)) {
+        System.err.println(Instant.now().toString() + " Ended: " + resourceRequestToString(request));
+        System.err.println("Current total used resources: " + usedResourcesToString());
+
+    }
+
     return processAllWaitingThreads();
   }
 
@@ -649,9 +697,14 @@ public class ResourceManager implements ResourceEstimator {
           request.second.worker = worker;
           request.second.latch.countDown();
           iterator.remove();
+          if (isForTest(request.first)) {
+            System.err.println(Instant.now().toString() + " Started after waiting: " + resourceRequestToString(request.first));
+            System.err.println("Current total used resources: " + usedResourcesToString());
+          }
         } else if(skipBehavior != SkipBehaviorEnum.SKIP_TESTS_AND_BUILDS) {
           // Abort if no longer allowed to skip through requests to find smaller ones that fit
-          if (skipBehavior == SkipBehaviorEnum.SKIP_NOTHING || request.first.getOwner().getMnemonic() == "TestRunner") {
+          if (skipBehavior == SkipBehaviorEnum.SKIP_NOTHING || isForTest(request.first)) {
+            System.err.println("Ending queue traversal.");
             return;
           }
         }

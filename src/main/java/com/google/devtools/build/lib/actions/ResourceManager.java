@@ -22,6 +22,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.actions.ResourceManagerOptionTypes.SkipBehaviorEnum;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -198,6 +199,8 @@ public class ResourceManager implements ResourceEstimator {
 
   private Map<String, Integer> testPriorities = null;
 
+  private SkipBehaviorEnum localRequestsSkipBehavior = null;
+
   /** If set, local-only actions are given priority over dynamically run actions. */
   private boolean prioritizeLocalActions;
 
@@ -342,6 +345,10 @@ public class ResourceManager implements ResourceEstimator {
         this.localRequests.addLast(request);
       }
     }
+  }
+
+  public synchronized void setSkipBehavior(SkipBehaviorEnum behavior) {
+    this.localRequestsSkipBehavior = behavior;
   }
 
   public synchronized void scheduleCpuLoadWindowUpdate() {
@@ -609,22 +616,29 @@ public class ResourceManager implements ResourceEstimator {
   private synchronized boolean processAllWaitingThreads() throws IOException, InterruptedException {
     boolean anyProcessed = false;
     if (!localRequests.isEmpty()) {
-      processWaitingThreads(localRequests);
+      processWaitingThreads(localRequests, localRequestsSkipBehavior);
       anyProcessed = true;
+
+      // Queue isn't empty but not able to skip everything so need to build up resources.
+      if(!localRequests.isEmpty() &&
+          localRequestsSkipBehavior != SkipBehaviorEnum.SKIP_TESTS_AND_BUILDS) {
+        return true;
+      }
     }
     if (!dynamicWorkerRequests.isEmpty()) {
-      processWaitingThreads(dynamicWorkerRequests);
+      processWaitingThreads(dynamicWorkerRequests, SkipBehaviorEnum.SKIP_TESTS_AND_BUILDS);
       anyProcessed = true;
     }
     if (!dynamicStandaloneRequests.isEmpty()) {
-      processWaitingThreads(dynamicStandaloneRequests);
+      processWaitingThreads(dynamicStandaloneRequests, SkipBehaviorEnum.SKIP_TESTS_AND_BUILDS);
       anyProcessed = true;
     }
     return anyProcessed;
   }
 
   private synchronized void processWaitingThreads(
-      SimpleDeque<Pair<ResourceRequest, LatchWithWorker>> requests)
+      SimpleDeque<Pair<ResourceRequest, LatchWithWorker>> requests,
+      SkipBehaviorEnum skipBehavior)
       throws IOException, InterruptedException {
     Iterator<Pair<ResourceRequest, LatchWithWorker>> iterator = requests.iterator();
     while (iterator.hasNext()) {
@@ -635,6 +649,11 @@ public class ResourceManager implements ResourceEstimator {
           request.second.worker = worker;
           request.second.latch.countDown();
           iterator.remove();
+        } else if(skipBehavior != SkipBehaviorEnum.SKIP_TESTS_AND_BUILDS) {
+          // Abort if no longer allowed to skip through requests to find smaller ones that fit
+          if (skipBehavior == SkipBehaviorEnum.SKIP_NOTHING || request.first.getOwner().getMnemonic() == "TestRunner") {
+            return;
+          }
         }
       } else {
         // Cancelled by other side.

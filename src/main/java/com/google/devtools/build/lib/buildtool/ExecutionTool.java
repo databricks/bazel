@@ -1013,6 +1013,7 @@ public class ExecutionTool {
           e);
       }
     }
+    resourceMgr.setSkipBehavior(options.resourceManagerSkipBehavior);
   }
 
   private static Map.Entry<String, Integer> parseTestPriority(String x) {

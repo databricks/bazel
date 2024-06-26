@@ -60,6 +60,7 @@ java_library(
             "LocalHostResourceFallback.java",
             "MiddlemanType.java",
             "ResourceManager.java",
+            "ResourceManagerOptionTypes.java",
             "ResourceSet.java",
             "ResourceSetOrBuilder.java",
             "RemoteFileStatus.java",
@@ -375,6 +376,7 @@ java_library(
     deps = [
         ":actions",
         ":localhost_capacity",
+        ":resource_manager_option_types",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/util",
@@ -386,5 +388,13 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "resource_manager_option_types",
+    srcs = ["ResourceManagerOptionTypes.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/common/options",
     ],
 )

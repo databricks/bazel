@@ -45,7 +45,7 @@ public class PrioritizedDeque<E> implements SimpleDeque<E> {
     for(LinkedList<E> ll : backing.values()) {
       size += ll.size();
     }
-    return size();
+    return size;
   }
 
   public boolean isEmpty() {

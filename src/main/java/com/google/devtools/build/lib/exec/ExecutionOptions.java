@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
+import com.google.devtools.build.lib.actions.ResourceManagerOptionTypes;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.util.CpuResourceConverter;
 import com.google.devtools.build.lib.util.OptionsUtils;
@@ -417,6 +418,16 @@ public class ExecutionOptions extends OptionsBase {
       help =
           "If non-empty, adjusts priority of specific test targets according to file.")
   public String experimentalTestPriorityFile;
+
+  @Option(
+      name = "experimental_resource_manager_skip_behavior",
+      defaultValue = "SKIP_TESTS_AND_BUILDS",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "If non-empty, adjusts priority of specific test targets according to file.",
+      converter = ResourceManagerOptionTypes.SkipBehaviorEnumConverter.class)
+  public ResourceManagerOptionTypes.SkipBehaviorEnum resourceManagerSkipBehavior;
 
   @Option(
       name = "local_test_jobs",

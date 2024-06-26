@@ -22,6 +22,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.actions.ResourceManagerOptionTypes.SkipBehaviorEnum;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -198,6 +199,8 @@ public class ResourceManager implements ResourceEstimator {
 
   private Map<String, Integer> testPriorities = null;
 
+  private SkipBehaviorEnum localRequestsSkipBehavior = null;
+
   /** If set, local-only actions are given priority over dynamically run actions. */
   private boolean prioritizeLocalActions;
 
@@ -324,19 +327,31 @@ public class ResourceManager implements ResourceEstimator {
     System.out.println("Setting test priorities");
     if (priorities == null && this.testPriorities == null) {
       // This is mostly being overprotective so that if the testPriorities feature is
-      // not being used at all then can't even throw an exception.
+      // not being used at all then nothing happens here.
       return;
     }
-    if (!localRequests.isEmpty()) {
-      throw new IllegalStateException("Priorities cannot be changed in the middle of an active build.");
-    }
     this.testPriorities = priorities;
+
+    // Need to update the localRequest queue structure to use the new priorities.
+    SimpleDeque<Pair<ResourceRequest, LatchWithWorker>> oldLocalRequests = this.localRequests;;
     if (this.testPriorities != null) {
       this.localRequests = new PrioritizedDeque<Pair<ResourceRequest, LatchWithWorker>>(
         request -> requestToPriority(request));
     } else {
       this.localRequests = SimpleDeque.of(new LinkedList<Pair<ResourceRequest, LatchWithWorker>>());
     }
+    // In practice, this function is not expected to be called with a non-empty requests queue.
+    // (as it should only be called when the build is being set up)
+    // Regardless, add any requests from the old queue to the new one so they are not lost forever.
+    if (!oldLocalRequests.isEmpty()) {
+      for (Pair<ResourceRequest, LatchWithWorker> request : oldLocalRequests) {
+        this.localRequests.addLast(request);
+      }
+    }
+  }
+
+  public synchronized void setSkipBehavior(SkipBehaviorEnum behavior) {
+    this.localRequestsSkipBehavior = behavior;
   }
 
   public synchronized void scheduleCpuLoadWindowUpdate() {
@@ -604,22 +619,29 @@ public class ResourceManager implements ResourceEstimator {
   private synchronized boolean processAllWaitingThreads() throws IOException, InterruptedException {
     boolean anyProcessed = false;
     if (!localRequests.isEmpty()) {
-      processWaitingThreads(localRequests);
+      processWaitingThreads(localRequests, localRequestsSkipBehavior);
       anyProcessed = true;
+
+      // Queue isn't empty but not able to skip everything so need to build up resources.
+      if(!localRequests.isEmpty() &&
+          localRequestsSkipBehavior != SkipBehaviorEnum.SKIP_TESTS_AND_BUILDS) {
+        return true;
+      }
     }
     if (!dynamicWorkerRequests.isEmpty()) {
-      processWaitingThreads(dynamicWorkerRequests);
+      processWaitingThreads(dynamicWorkerRequests, SkipBehaviorEnum.SKIP_TESTS_AND_BUILDS);
       anyProcessed = true;
     }
     if (!dynamicStandaloneRequests.isEmpty()) {
-      processWaitingThreads(dynamicStandaloneRequests);
+      processWaitingThreads(dynamicStandaloneRequests, SkipBehaviorEnum.SKIP_TESTS_AND_BUILDS);
       anyProcessed = true;
     }
     return anyProcessed;
   }
 
   private synchronized void processWaitingThreads(
-      SimpleDeque<Pair<ResourceRequest, LatchWithWorker>> requests)
+      SimpleDeque<Pair<ResourceRequest, LatchWithWorker>> requests,
+      SkipBehaviorEnum skipBehavior)
       throws IOException, InterruptedException {
     Iterator<Pair<ResourceRequest, LatchWithWorker>> iterator = requests.iterator();
     while (iterator.hasNext()) {
@@ -630,6 +652,11 @@ public class ResourceManager implements ResourceEstimator {
           request.second.worker = worker;
           request.second.latch.countDown();
           iterator.remove();
+        } else if(skipBehavior != SkipBehaviorEnum.SKIP_TESTS_AND_BUILDS) {
+          // Abort if no longer allowed to skip through requests to find smaller ones that fit
+          if (skipBehavior == SkipBehaviorEnum.SKIP_NOTHING || request.first.getOwner().getMnemonic() == "TestRunner") {
+            return;
+          }
         }
       } else {
         // Cancelled by other side.

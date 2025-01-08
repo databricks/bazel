@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.util.CpuResourceConverter;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.RamResourceConverter;
 import com.google.devtools.build.lib.util.ResourceConverter;
@@ -25,6 +26,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.TriStateConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -371,6 +373,16 @@ public class SandboxOptions extends OptionsBase {
   public boolean sandboxHermeticTmp;
 
   @Option(
+    name = "experimental_sandbox_resources_monitor",
+    defaultValue = "",
+    documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+    effectTags = {OptionEffectTag.EXECUTION},
+    converter = Converters.CommaSeparatedOptionListConverter.class,
+    help =
+      "Enables active monitoring of the values in the memory.stat interface of cgroups.")
+  public List<String> memoryMonitored;
+
+  @Option(
       name = "experimental_sandbox_memory_limit_mb",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
@@ -380,6 +392,29 @@ public class SandboxOptions extends OptionsBase {
           "If > 0, each Linux sandbox will be limited to the given amount of memory (in MB)."
               + " Requires cgroups v1 or v2 and permissions for the users to the cgroups dir.")
   public int memoryLimitMb;
+
+  @Option(
+      name = "experimental_sandbox_cpu_limit",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      converter = CpuResourceConverter.class,
+      help =
+          "If > 0, each Linux sandbox will be limited to the given amount of cpus."
+              + " Requires cgroups v1 or v2 and permissions for the users to the cgroups dir.")
+  public float cpuLimit;
+
+  @Option(
+      name = "experimental_sandbox_execution_info_limit",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "If true, resources declared in the execution info that match a cgroup controller"
+              + " will be used to apply the limits. For example a target that declares"
+              + " cpu:3 and resources:memory:10, will run with at most 3 cpus and 10"
+              + " megabytes of memory.")
+  public boolean executionInfoLimit;
 
   /** Converter for the number of threads used for asynchronous tree deletion. */
   public static final class AsyncTreeDeletesConverter extends ResourceConverter.IntegerConverter {

@@ -241,54 +241,81 @@ public abstract class VirtualCGroup {
         return child;
     }
 
-    final class StatsData implements TraceData {
-      @Override
-      public void writeTraceData(JsonWriter jsonWriter, long profileStartTimeNanos) throws IOException {
-        long timestamp = TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - profileStartTimeNanos);
-        if (cpu() != null || cpuacct() != null) {
-          var stats = new LinkedHashMap<String, String>();
-          if (cpu() != null) {
+    private Map<String, String> getCpuStats() throws IOException {
+        if (cpu() == null && cpuacct() == null) {
+            return null;
+        }
+
+        var stats = new LinkedHashMap<String, String>();
+        if (cpu() != null) {
             try (BufferedReader reader = new BufferedReader(new StringReader(cpu().getStats()))) {
-              String line;
-              while ((line = reader.readLine()) != null) {
-                String[] parts = line.split(" ", 2);
-                stats.put(parts[0], parts[1]);
-              }
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    String[] parts = line.split(" ", 2);
+                    stats.put(parts[0], parts[1]);
+                }
             }
             stats.put("quota", String.valueOf(cpu().getCpus()));
             stats.put("period", String.valueOf(cpu().getPeriod()));
-          }
-          if (cpuacct() != null) {
+        }
+        if (cpuacct() != null) {
             try (BufferedReader reader = new BufferedReader(new StringReader(cpuacct().getStats()))) {
-              String line;
-              while ((line = reader.readLine()) != null) {
-                  String[] parts = line.split(" ", 2);
-                  Double value = Long.parseLong(parts[1]) * 1e6 / LegacyCpuAcct.USER_HZ;
-                  stats.put(parts[0] + "_usec", String.valueOf(value.longValue()));
-              }
-              }
-              stats.put("usage_usec", String.valueOf(cpuacct().getUsage() / 1000));
-          }
-          for (Map.Entry<String, Long> stat : memory().monitor().stop().entrySet()) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    String[] parts = line.split(" ", 2);
+                    Double value = Long.parseLong(parts[1]) * 1e6 / LegacyCpuAcct.USER_HZ;
+                    stats.put(parts[0] + "_usec", String.valueOf(value.longValue()));
+                }
+            }
+            stats.put("usage_usec", String.valueOf(cpuacct().getUsage() / 1000));
+        }
+
+        return stats;
+    }
+
+    private Map<String, String> getMemoryStats() throws IOException {
+        if (memory() == null) {
+            return null;
+        }
+
+        var stats = new LinkedHashMap<String, String>();
+        Long kills = memory().oomKills();
+        Long limit = memory().getMaxBytes();
+        Long usage = memory().maxUsage();
+        if (usage > 0) stats.put("max_usage_in_bytes", String.valueOf(usage));
+        if (limit > 0) stats.put("limit_in_bytes", String.valueOf(limit));
+        if (kills > 0) stats.put("oom_kills", String.valueOf(kills));
+
+        for (Map.Entry<String, Long> stat : memory().monitor().stop().entrySet()) {
             stats.put(stat.getKey(), String.valueOf(stat.getValue()));
+        }
+
+        return stats;
+    }
+
+    final class StatsData implements TraceData {
+        Map<String, String> cpuStats;
+        Map<String, String> memoryStats;
+        long threadId = Thread.currentThread().getId();
+        long endTime = System.nanoTime();
+
+        StatsData() throws IOException {
+            cpuStats = getCpuStats();
+            memoryStats = getMemoryStats();
+        }
+
+        @Override
+      public void writeTraceData(JsonWriter jsonWriter, long profileStartTimeNanos) throws IOException {
+          long timestamp = TimeUnit.NANOSECONDS.toMicros(endTime - profileStartTimeNanos);
+          if (cpuStats != null) {
+            writeStats(jsonWriter, timestamp, "CPU stats (Sandbox)", cpuStats);
           }
-          writeStats(jsonWriter, timestamp, "CPU stats (Sandbox)",  stats);
-        }
-        if (memory() != null) {
-          var stats = new LinkedHashMap<String, String>();
-          Long kills = memory().oomKills();
-          Long limit = memory().getMaxBytes();
-          Long usage = memory().maxUsage();
-          if (usage > 0) stats.put("max_usage_in_bytes", String.valueOf(usage));
-          if (limit > 0) stats.put("limit_in_bytes", String.valueOf(limit));
-          if (kills > 0) stats.put("oom_kills", String.valueOf(kills));
-          writeStats(jsonWriter, timestamp, "Memory stats (Sandbox)", stats);
-        }
+          if (memoryStats != null) {
+            writeStats(jsonWriter, timestamp, "Memory stats (Sandbox)", memoryStats);
+          }
       }
 
       void writeStats(JsonWriter writer, long timestamp, String name, Map<String, String> stats) throws IOException {
-        var currentThread = Thread.currentThread();
-        var threadId = currentThread.threadId();
         writer.setIndent("  ");
         writer.beginObject();
         writer.setIndent("");

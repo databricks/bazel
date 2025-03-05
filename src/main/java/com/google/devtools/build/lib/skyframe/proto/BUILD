@@ -26,5 +26,5 @@ java_library_srcs(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src/main/java/com/google/devtools/build/lib:__subpackages__"],
+    visibility = ["//src:__subpackages__"],
 )

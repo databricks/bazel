@@ -29,6 +29,7 @@ from src.create_embedded_tools_lib import is_executable
 
 output_paths = [
     ('*MODULE.tools', lambda x: 'MODULE.bazel'),
+    ('*src/main/protobuf/BUILD.tools', lambda x: 'src/main/protobuf/BUILD'),
     ('*tools/jdk/BUILD.tools', lambda x: 'tools/jdk/BUILD'),
     (
         '*tools/build_defs/repo/BUILD.repo',

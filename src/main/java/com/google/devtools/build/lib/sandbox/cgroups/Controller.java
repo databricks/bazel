@@ -59,4 +59,8 @@ public interface Controller {
     interface CpuAcct extends Controller {
         long getUsage() throws IOException;
     }
+    interface NetCls extends Controller {
+        void setNetCls(int netCls) throws IOException;
+        int getNetCls() throws IOException;
+    }
 }

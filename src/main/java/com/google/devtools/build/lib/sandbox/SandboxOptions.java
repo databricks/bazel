@@ -430,6 +430,16 @@ public class SandboxOptions extends OptionsBase {
   public float cpuLimit;
 
   @Option(
+      name = "experimental_sandbox_cgroup_net_cls",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "If set, any target not tagged with requires-network will run its actions "
+              + "inside a sandbox with the given netcls for filtering by iptables firewalls.")
+  public int cgroupNetCls;
+
+  @Option(
       name = "experimental_sandbox_execution_info_limit",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,

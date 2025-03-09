@@ -13,8 +13,10 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.sandbox.cgroups.v1.LegacyCpu;
 import com.google.devtools.build.lib.sandbox.cgroups.v1.LegacyCpuAcct;
 import com.google.devtools.build.lib.sandbox.cgroups.v1.LegacyMemory;
+import com.google.devtools.build.lib.sandbox.cgroups.v1.LegacyNetCls;
 import com.google.devtools.build.lib.sandbox.cgroups.v2.UnifiedCpu;
 import com.google.devtools.build.lib.sandbox.cgroups.v2.UnifiedMemory;
+import com.google.devtools.build.lib.sandbox.cgroups.v2.UnifiedNetCls;
 
 import javax.annotation.Nullable;
 import java.io.BufferedReader;
@@ -53,6 +55,8 @@ public abstract class VirtualCGroup {
     public abstract Controller.Memory memory();
     @Nullable
     public abstract Controller.CpuAcct cpuacct();
+    @Nullable
+    public abstract Controller.NetCls netCls();
 
     public abstract ImmutableSet<Path> paths();
 
@@ -111,6 +115,7 @@ public abstract class VirtualCGroup {
         Controller.Memory memory = null;
         Controller.Cpu cpu = null;
         Controller.CpuAcct cpuacct = null;
+        Controller.NetCls netCls = null;
         ImmutableSet.Builder<Path> paths = ImmutableSet.builder();
 
         for (Mount m: mounts) {
@@ -157,6 +162,11 @@ public abstract class VirtualCGroup {
                             logger.atInfo().log("Found cgroup v2 cpu controller at %s", cgroup);
                             cpu = new UnifiedCpu(cgroup);
                             break;
+                        case "net_cls":
+                            if (netCls != null) continue;
+                            logger.atInfo().log("Found cgroup v2 net_cls controller at %s", cgroup);
+                            netCls = new UnifiedNetCls(cgroup);
+                            break;
                     }
                 }
             } else {
@@ -188,6 +198,11 @@ public abstract class VirtualCGroup {
                             logger.atInfo().log("Found cgroup v1 cpuacct controller at %s", cgroup);
                             cpuacct = new LegacyCpuAcct(cgroup);
                             break;
+                        case "net_cls":
+                            if (netCls != null) continue;
+                            logger.atInfo().log("Found cgroup v1 net_cls controller at %s", cgroup);
+                            netCls = new LegacyNetCls(cgroup);
+                            break;
                     }
                 }
             }
@@ -195,7 +210,8 @@ public abstract class VirtualCGroup {
 
         cpu = cpu != null ? cpu : Controller.getDefault(Controller.Cpu.class);
         memory = memory != null ? memory : Controller.getDefault(Controller.Memory.class);
-        VirtualCGroup vcgroup = new AutoValue_VirtualCGroup(cpu, memory, cpuacct, paths.build());
+        netCls = netCls != null ? netCls : Controller.getDefault(Controller.NetCls.class);
+        VirtualCGroup vcgroup = new AutoValue_VirtualCGroup(cpu, memory, cpuacct, netCls, paths.build());
         Runtime.getRuntime().addShutdownHook(new Thread(() -> vcgroup.delete()));
         return vcgroup;
     }
@@ -208,6 +224,7 @@ public abstract class VirtualCGroup {
     public VirtualCGroup child(String name) throws IOException {
         Controller.Cpu cpu = Controller.getDefault(Controller.Cpu.class);
         Controller.Memory memory = Controller.getDefault(Controller.Memory.class);
+        Controller.NetCls netCls = null;
         Controller.CpuAcct cpuacct = null;
         ImmutableSet.Builder<Path> paths = ImmutableSet.builder();
         if (memory() != null && memory().getPath() != null) {
@@ -232,7 +249,14 @@ public abstract class VirtualCGroup {
             cpuacct = new LegacyCpuAcct(cgroup);
             paths.add(cgroup);
         }
-        VirtualCGroup child = new AutoValue_VirtualCGroup(cpu, memory, cpuacct, paths.build());
+        if (netCls() != null && netCls().getPath() != null) {
+            copyControllersToSubtree(netCls().getPath());
+            Path cgroup = netCls().getPath().resolve(name);
+            cgroup.toFile().mkdirs();
+            netCls = new LegacyNetCls(cgroup);
+            paths.add(cgroup);
+        }
+        VirtualCGroup child = new AutoValue_VirtualCGroup(cpu, memory, cpuacct, netCls, paths.build());
         this.children.add(child);
         return child;
     }

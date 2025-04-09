@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Worker.Code;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.util.Pair;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -56,6 +57,11 @@ public class WorkerMultiplexerManager {
    * record how many {@code WorkerProxy} objects are talking to this {@code WorkerMultiplexer}.
    */
   public static synchronized WorkerMultiplexer getInstance(WorkerKey key, Path logFile) {
+    return getInstanceAndRefCount(key, logFile).first;
+  }
+
+  public static synchronized Pair<WorkerMultiplexer, Integer> getInstanceAndRefCount(
+      WorkerKey key, Path logFile) {
     InstanceInfo instanceInfo =
         multiplexerInstance.computeIfAbsent(
             key,
@@ -63,7 +69,7 @@ public class WorkerMultiplexerManager {
                 new InstanceInfo(
                     new WorkerMultiplexer(logFile, k, multiplexerIdCounter.getAndIncrement())));
     instanceInfo.increaseRefCount();
-    return instanceInfo.getWorkerMultiplexer();
+    return Pair.of(instanceInfo.getWorkerMultiplexer(), instanceInfo.getRefCount());
   }
 
   static void beforeCommand(Reporter reporter) {

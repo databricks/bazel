@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.worker;
 import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.BaseEncoding;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.sandbox.AsynchronousTreeDeleter;
@@ -93,12 +94,15 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
         workerBaseDir.getRelative(workTypeName + "-" + workerId + "-" + key.getMnemonic() + ".log");
 
     Worker worker;
+    Optional<Integer> refCount = Optional.empty();
     if (key.isSandboxed()) {
       if (key.isMultiplex()) {
-        WorkerMultiplexer workerMultiplexer = WorkerMultiplexerManager.getInstance(key, logFile);
+        var workerMultiplexerAndRefCount = WorkerMultiplexerManager.getInstanceAndRefCount(key, logFile);
+        var workerMultiplexer = workerMultiplexerAndRefCount.first;
         int multiplexerId = workerMultiplexer.getMultiplexerId();
-        Path workDir = getMultiplexSandboxedWorkerPath(key, multiplexerId);
+        Path workDir = getSandboxedWorkerPath(key, multiplexerId);
         worker = new SandboxedWorkerProxy(key, workerId, logFile, workerMultiplexer, workDir);
+        refCount = Optional.of(workerMultiplexerAndRefCount.second);
       } else {
         Path workDir = getSandboxedWorkerPath(key, workerId);
         worker =
@@ -106,23 +110,28 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
                 key, workerId, workDir, logFile, hardenedSandboxOptions, treeDeleter);
       }
     } else if (key.isMultiplex()) {
-      WorkerMultiplexer workerMultiplexer = WorkerMultiplexerManager.getInstance(key, logFile);
+      var workerMultiplexerAndRefCount = WorkerMultiplexerManager.getInstanceAndRefCount(key, logFile);
       worker =
           new WorkerProxy(
-              key, workerId, workerMultiplexer.getLogFile(), workerMultiplexer, key.getExecRoot());
+              key, workerId, workerMultiplexerAndRefCount.first.getLogFile(), workerMultiplexerAndRefCount.first, key.getExecRoot());
+      refCount = Optional.of(workerMultiplexerAndRefCount.second);
     } else {
       worker = new SingleplexWorker(key, workerId, key.getExecRoot(), logFile);
     }
 
+    boolean created = refCount.orElse(1) == 1;
+
     String msg =
         String.format(
-            "Created new %s %s %s (id %d, key hash %d), logging to %s",
+            "%s %s %s %s (id %d, key hash %08x%s)%s",
+            created ? "Created new" : "Reusing",
             key.isSandboxed() ? "sandboxed" : "non-sandboxed",
             key.getMnemonic(),
             workTypeName,
             workerId,
             key.hashCode(),
-            worker.getLogFile());
+            refCount.isPresent() ? ", ref count " + refCount.get() : "",
+            created ? ", logging to " + worker.getLogFile() : "");
     WorkerLoggingHelper.logMessage(reporter, WorkerLoggingHelper.LogLevel.INFO, msg);
     if (eventBus != null) {
       eventBus.post(new WorkerCreatedEvent(key.hashCode(), key.getMnemonic()));
@@ -155,10 +164,18 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
   @Override
   public void destroyObject(WorkerKey key, PooledObject<Worker> p) {
     int workerId = p.getObject().getWorkerId();
+    Optional<Integer> refCount = Optional.empty();
+    try {
+      refCount = Optional.of(WorkerMultiplexerManager.getRefCount(key));
+    } catch (UserExecException e) {
+      // This is expected if the worker was never created, e.g. if it was never used.
+    }
     String msg =
         String.format(
-            "Destroying %s %s (id %d, key hash %d)",
-            key.getMnemonic(), key.getWorkerTypeName(), workerId, key.hashCode());
+            "%s %s %s (id %d, key hash %08x%s)",
+            refCount.orElse(1) == 1 ? "Destroying" : "Releasing",
+            key.getMnemonic(), key.getWorkerTypeName(), workerId, key.hashCode(),
+            refCount.isPresent() ? ", ref count " + refCount.get() : "");
     WorkerLoggingHelper.logMessage(reporter, WorkerLoggingHelper.LogLevel.INFO, msg);
     p.getObject().destroy();
     if (eventBus != null) {

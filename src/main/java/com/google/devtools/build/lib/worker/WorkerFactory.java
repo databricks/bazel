@@ -24,6 +24,9 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.worker.SandboxedWorker.WorkerSandboxOptions;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Objects;
@@ -120,19 +123,31 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
     }
 
     boolean created = refCount.orElse(1) == 1;
+    String keyHash = String.format("%08x", key.hashCode());
 
     String msg =
         String.format(
-            "%s %s %s %s (id %d, key hash %08x%s)%s",
+            "%s %s %s %s (id %d, key hash %s%s)%s",
             created ? "Created new" : "Reusing",
             key.isSandboxed() ? "sandboxed" : "non-sandboxed",
             key.getMnemonic(),
             workTypeName,
             workerId,
-            key.hashCode(),
+            keyHash,
             refCount.isPresent() ? ", ref count " + refCount.get() : "",
             created ? ", logging to " + worker.getLogFile() : "");
     WorkerLoggingHelper.logMessage(reporter, WorkerLoggingHelper.LogLevel.INFO, msg);
+
+    if (created) {
+      Path keyFile =
+          workerBaseDir.getRelative(workTypeName + "-" + workerId + "-" + key.getMnemonic() + "-" + keyHash + ".key");
+
+      try (Writer w = new OutputStreamWriter(keyFile.getOutputStream(), StandardCharsets.UTF_8)) {
+        w.write(key.toString());
+        w.write("\n");
+      }
+    }
+
     if (eventBus != null) {
       eventBus.post(new WorkerCreatedEvent(key.hashCode(), key.getMnemonic()));
     }

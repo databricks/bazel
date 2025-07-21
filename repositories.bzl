@@ -71,51 +71,59 @@ def embedded_jdk_repositories():
     """OpenJDK distributions used to create a version of Bazel bundled with the OpenJDK."""
     http_file(
         name = "openjdk_linux_vanilla",
-        integrity = "sha256-UyCjNxT1jAEEGR0kR1napqbUaBnURzR7qQAxMuVInZI=",
+        integrity = "sha256-Kf6gF8A8ZFIhujEgjlENeuSPVzW6QWnVZcRst35/ZvI=",
         downloaded_file_path = "zulu-linux-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu21.38.21-ca-jdk21.0.5-linux_x64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu24.28.83-ca-jdk24.0.0-linux_x64.tar.gz",
     )
     http_file(
         name = "openjdk_linux_aarch64_vanilla",
-        integrity = "sha256-i9OHMVYgu2aoSUWlG867kBY1S1V8dH6U1IN+aOpAd+w=",
+        integrity = "sha256-6J7szd/ax9xCMNA9efw9Bhgv/VwQFXz5glWIoj+UYIc=",
         downloaded_file_path = "zulu-linux-aarch64-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu21.38.21-ca-jdk21.0.5-linux_aarch64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu24.28.83-ca-jdk24.0.0-linux_aarch64.tar.gz",
     )
     http_file(
         name = "openjdk_linux_s390x_vanilla",
-        integrity = "sha256-UafKQswujLXz56MmwokS7oT/B5GhymZlCoxTrwdRCnw=",
+        integrity = "sha256-OUGdcggvrqbSUBIj8cv2qRKLwjAArft7fues/OQiUJw=",
         downloaded_file_path = "adoptopenjdk-s390x-vanilla.tar.gz",
-        url = "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.5%2B11/OpenJDK21U-jdk_s390x_linux_hotspot_21.0.5_11.tar.gz",
+        url = "https://github.com/adoptium/temurin23-binaries/releases/download/jdk-23.0.1%2B11/OpenJDK23U-jdk_s390x_linux_hotspot_23.0.1_11.tar.gz",
     )
     http_file(
         name = "openjdk_linux_ppc64le_vanilla",
-        integrity = "sha256-PG9MNY+s+2wZ2Q+vAr/g/HUS1rDoCsGBRrvX4NAd7u8=",
+        integrity = "sha256-GIWrFB/nuO1r63e4FLHByZ/VRxM5m/kX7bakAgVFrd4=",
         downloaded_file_path = "adoptopenjdk-ppc64le-vanilla.tar.gz",
-        url = "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.5%2B11/OpenJDK21U-jdk_ppc64le_linux_hotspot_21.0.5_11.tar.gz",
+        url = "https://github.com/adoptium/temurin23-binaries/releases/download/jdk-23.0.1%2B11/OpenJDK23U-jdk_ppc64le_linux_hotspot_23.0.1_11.tar.gz",
+    )
+    http_file(
+        name = "openjdk_linux_riscv64_vanilla",
+        integrity = "sha256-gNe6uflhS9+TTGvEQQMb0f6tOuqF8WdwEjvYprzcUrY=",
+        downloaded_file_path = "adoptopenjdk-riscv64-vanilla.tar.gz",
+        url = "https://github.com/adoptium/temurin23-binaries/releases/download/jdk-23.0.1%2B11/OpenJDK23U-jdk_riscv64_linux_hotspot_23.0.1_11.tar.gz",
     )
     http_file(
         name = "openjdk_macos_x86_64_vanilla",
-        integrity = "sha256-zXTl63OMkUWdS45eEOrJGK4qBdIan8fKXcLaZOZbzr0=",
+        integrity = "sha256-e7KJtJ9+mFFSdKCj68thfTXguWH5zXaSSb9phzXf/lQ=",
         downloaded_file_path = "zulu-macos-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu21.38.21-ca-jdk21.0.5-macosx_x64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu24.28.83-ca-jdk24.0.0-macosx_x64.tar.gz",
     )
     http_file(
         name = "openjdk_macos_aarch64_vanilla",
-        integrity = "sha256-gP/CXfeblVZTGNv8gwnFFXJv9C6b21MwYe3HrSbxPfI=",
+        integrity = "sha256-7yXLOJCK0RZ8V1vsexOGxGR9NAwi/pCl95BlO8E8nGU=",
         downloaded_file_path = "zulu-macos-aarch64-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu21.38.21-ca-jdk21.0.5-macosx_aarch64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu24.28.83-ca-jdk24.0.0-macosx_aarch64.tar.gz",
     )
     http_file(
         name = "openjdk_win_vanilla",
-        integrity = "sha256-jepE/TpvetD0LzirwTcQdXELWL7ZvY8JPC7y1FDdJnI=",
+        integrity = "sha256-Nfmnb2gAmoKWgefl801WVjTNxxaaT+TmbwSzJ8uccf8=",
         downloaded_file_path = "zulu-win-vanilla.zip",
-        url = "https://cdn.azul.com/zulu/bin/zulu21.38.21-ca-jdk21.0.5-win_x64.zip",
+        url = "https://cdn.azul.com/zulu/bin/zulu24.28.83-ca-jdk24.0.0-win_x64.zip",
     )
+
+    # Later version of the JDK for Windows ARM64 are not available yet.
     http_file(
         name = "openjdk_win_arm64_vanilla",
-        integrity = "sha256-9a1/U5900StiSMD9n0tBZFXc9oA5ALKOjRkFTz3Mbpg=",
+        integrity = "sha256-V8VoNVuX0ojxK3IHYNgCsaGcVemwcHpcKtdtNP2JPbg=",
         downloaded_file_path = "zulu-win-arm64.zip",
-        url = "https://cdn.azul.com/zulu/bin/zulu21.38.21-ca-jdk21.0.5-win_aarch64.zip",
+        url = "https://cdn.azul.com/zulu/bin/zulu21.40.17-ca-jdk21.0.6-win_aarch64.zip",
     )
 
 def bazelci_rules_repo():

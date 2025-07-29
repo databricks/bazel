@@ -141,7 +141,15 @@ public class CollectLocalResourceUsage extends Thread {
       Duration nextElapsed = stopwatch.elapsed();
       long nextCpuTimeNanos = osBean.getProcessCpuTime();
 
-      double systemCpuLoad = osBean.getSystemCpuLoad();
+      double systemCpuLoad;
+      try {
+        systemCpuLoad = osBean.getSystemCpuLoad();
+      } catch (NullPointerException unused) {
+        // OperatingSystemMXBean.getCpuLoad() suffers from a TOCTOU issue on Linux that can
+        // cause a NullPointerException. See https://github.com/bazelbuild/bazel/issues/24519 for
+        // details.
+        systemCpuLoad = 0;
+      }
       if (Double.isNaN(systemCpuLoad)) {
         // Unlike advertised, on Mac the system CPU load is NaN sometimes.
         // There is no good way to handle this, so to avoid any downstream method crashing on this,

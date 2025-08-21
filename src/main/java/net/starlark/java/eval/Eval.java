@@ -17,11 +17,7 @@ package net.starlark.java.eval;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Argument;
 import net.starlark.java.syntax.AssignmentStatement;
@@ -587,6 +583,118 @@ final class Eval {
     }
   }
 
+  // databricks-extension {
+  private static final boolean DB_LOG_CALLS = System.getenv().containsKey("DB_LOG_STARLARK_CALLS");
+  private static final boolean DB_LOG_CALL_PARAMS;
+  private static final boolean DB_LOG_CALL_CALLSTACK;
+  private static final boolean DB_LOG_CALL_RESULT;
+
+  // (function name -> set of parameter groups). For a call to be logged, at least one group should be matched
+  // against the actual parameters in the call.
+  //
+  // An example: "(function name -> (p1 & p2) | (p3)"
+  // this means that the function will be logged if call parameters contain either 'p1' and 'p2', or 'p3'
+  //
+  // An example of a filter specified from the terminal:
+  // ```
+  // export DB_LOG_STARLARK_CALLS='params;callstack;result'
+  // export DB_LOG_STARLARK_CALLS_FILTER='cc_toolchain;_is_enabled:module_maps|header_modules'
+  // ```
+  // This means that
+  // a) All calls that are logged will be logged with the passed parameters, the callstack and the result
+  // b) The logging will be applied to
+  //      * all `cc_toolchain` calls
+  //      * `_is_enabled` calls which have "module_maps" or "header_modules" values among parameters
+  private static final Map<String, Set<Set<String>>> DB_CALL_FILTER = new HashMap<>();
+
+  static {
+    final var logCallFeatures = new HashSet<>(
+            Arrays.asList(System.getenv()
+                    .getOrDefault("DB_LOG_STARLARK_CALLS", "").split(";"))
+    );
+    DB_LOG_CALL_PARAMS = logCallFeatures.contains("params");
+    DB_LOG_CALL_CALLSTACK = logCallFeatures.contains("callstack");
+    DB_LOG_CALL_RESULT = logCallFeatures.contains("result");
+    String[] logCallFilters = System.getenv()
+            .getOrDefault("DB_LOG_STARLARK_CALLS_FILTER", "").split(";");
+    for (String logCallFilter : logCallFilters) {
+      final var nameAndOrParamGroups = logCallFilter.split(":");
+      final var name = nameAndOrParamGroups[0];
+      final var orParamGroupsFilter = DB_CALL_FILTER.computeIfAbsent(name, key -> new HashSet<>());
+      final var orParamGroups = nameAndOrParamGroups.length > 1
+              ? nameAndOrParamGroups[1].split("\\|")
+              : new String[0];
+      for (String orParamGroup : orParamGroups) {
+        final String[] andParams = orParamGroup.split("&");
+        orParamGroupsFilter.add(new HashSet<>(List.of(andParams)));
+      }
+    }
+  }
+
+  private static boolean dbIsAcceptableCall(Object fn, Object[] positionalArgs, Object[] namedArgs) {
+    if (DB_CALL_FILTER.isEmpty()) {
+      return true;
+    }
+    if (!(fn instanceof StarlarkFunction)) {
+      return false;
+    }
+    String functionName = ((StarlarkFunction) fn).getName();
+    final var orParamGroups = DB_CALL_FILTER.get(functionName);
+    if (orParamGroups == null) {
+      return false;
+    } else if (orParamGroups.isEmpty()) {
+      return true;
+    }
+    for (var andParams : orParamGroups) {
+      int counter = 0;
+      for (var positional : positionalArgs) {
+        if (andParams.contains(positional.toString())) {
+          ++counter;
+        }
+      }
+      for (var named : namedArgs) {
+        if (andParams.contains(named.toString())) {
+          ++counter;
+        }
+      }
+      if (counter >= andParams.size()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static void dbLogCall(StarlarkThread.Frame fr, Object fn, Object[] positional,
+                                Object[] named, Location loc, Object result) {
+    final var dbLogCalls = DB_LOG_CALLS && dbIsAcceptableCall(fn, positional, named);
+    if (dbLogCalls) {
+      StringBuilder sb = new StringBuilder();
+      String threadId = String.format("%h", System.identityHashCode(fr.thread));
+      sb.append(String.format("(%s): evaluating call %s at %s\n", threadId, fn, loc.toString()));
+      if (DB_LOG_CALL_PARAMS) {
+        sb.append("  positional args: ").append(Arrays.toString(positional)).append("\n");
+        sb.append("  named args: ").append(Arrays.toString(named)).append("\n");
+      }
+      if (DB_LOG_CALL_CALLSTACK) {
+        sb.append("  call stack:\n");
+        for (var entry : fr.thread.getCallStack()) {
+          sb.append("    (")
+                  .append(threadId)
+                  .append(") ")
+                  .append(entry.name)
+                  .append("(")
+                  .append(entry.location)
+                  .append(")\n");
+        }
+      }
+      if (DB_LOG_CALL_RESULT) {
+        sb.append("  result: ").append(result).append("\n");
+      }
+      System.err.print(sb);
+    }
+  }
+  // databricks-extension }
+
   private static Object evalCall(StarlarkThread.Frame fr, CallExpression call)
       throws EvalException, InterruptedException {
     fr.thread.checkInterrupt();
@@ -679,7 +787,11 @@ final class Eval {
     Location loc = call.getLparenLocation(); // (Location is prematerialized)
     fr.setLocation(loc);
     try {
-      return Starlark.fastcall(fr.thread, fn, positional, named);
+      // databricks-changed {
+      Object result = Starlark.fastcall(fr.thread, fn, positional, named);
+      dbLogCall(fr, fn, positional, named, loc, result);
+      return result;
+      // databricks-changed }
     } catch (EvalException ex) {
       fr.setErrorLocation(loc);
       throw ex;

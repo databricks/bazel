@@ -618,6 +618,9 @@ final class Eval {
     String[] logCallFilters = System.getenv()
             .getOrDefault("DB_LOG_STARLARK_CALLS_FILTER", "").split(";");
     for (String logCallFilter : logCallFilters) {
+      if (logCallFilter.isBlank()) {
+        continue;
+      }
       final var nameAndOrParamGroups = logCallFilter.split(":");
       final var name = nameAndOrParamGroups[0];
       final var orParamGroupsFilter = DB_CALL_FILTER.computeIfAbsent(name, key -> new HashSet<>());

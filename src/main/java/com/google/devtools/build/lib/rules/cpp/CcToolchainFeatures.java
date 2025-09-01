@@ -1576,6 +1576,11 @@ public class CcToolchainFeatures implements StarlarkValue {
 
   private PathFragment ccToolchainPath;
 
+  // databricks-extension {
+  private static final boolean DB_LOG_TC_FEATURES = System.getenv().containsKey("DB_LOG_TOOLCHAIN_FEATURES") &&
+      !System.getenv().get("DB_LOG_TOOLCHAIN_FEATURES").isBlank();
+  // databricks-extension }
+
   /**
    * Constructs the feature configuration from a {@link CcToolchainConfigInfo}.
    *
@@ -1599,6 +1604,9 @@ public class CcToolchainFeatures implements StarlarkValue {
 
     ImmutableList.Builder<String> defaultSelectablesBuilder = ImmutableList.builder();
     for (Feature feature : ccToolchainConfigInfo.getFeatures()) {
+      if (DB_LOG_TC_FEATURES) {
+        System.err.println("CC toolchain feature: " + feature.getName());
+      }
       selectablesBuilder.add(feature);
       selectablesByName.put(feature.getName(), feature);
       if (feature.isEnabled()) {

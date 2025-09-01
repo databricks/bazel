@@ -584,7 +584,9 @@ final class Eval {
   }
 
   // databricks-extension {
-  private static final boolean DB_LOG_CALLS = System.getenv().containsKey("DB_LOG_STARLARK_CALLS");
+  private static final boolean DB_LOG_CALLS = !"no".contentEquals(
+          System.getenv().getOrDefault("DB_LOG_STARLARK_CALLS", "no")
+  );
   private static final boolean DB_LOG_CALL_PARAMS;
   private static final boolean DB_LOG_CALL_CALLSTACK;
   private static final boolean DB_LOG_CALL_RESULT;

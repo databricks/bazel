@@ -30,24 +30,14 @@ import java.io.OutputStream;
 import java.lang.reflect.Method;
 import java.math.BigInteger;
 import java.time.Duration;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.spelling.SpellChecker;
-import net.starlark.java.syntax.Expression;
-import net.starlark.java.syntax.FileOptions;
-import net.starlark.java.syntax.ParserInput;
-import net.starlark.java.syntax.Program;
-import net.starlark.java.syntax.Resolver;
-import net.starlark.java.syntax.StarlarkFile;
-import net.starlark.java.syntax.SyntaxError;
+import net.starlark.java.syntax.*;
 
 /**
  * The Starlark class defines the most important entry points, constants, and functions needed by
@@ -771,6 +761,125 @@ public final class Starlark {
     }
     return fastcall(thread, fn, args.toArray(), named);
   }
+  
+// databricks-extension {
+  private static final boolean DB_LOG_CALLS = !"no".contentEquals(
+          System.getenv().getOrDefault("DB_LOG_STARLARK_CALLS", "no")
+  );
+  private static final boolean DB_LOG_CALL_PARAMS;
+  private static final boolean DB_LOG_CALL_CALLSTACK;
+  private static final boolean DB_LOG_CALL_RESULT;
+
+  // (function name -> set of parameter groups). For a call to be logged, at least one group should be matched
+  // against the actual parameters in the call.
+  //
+  // An example: "(function name -> (p1 & p2) | (p3)"
+  // this means that the function will be logged if call parameters contain either 'p1' and 'p2', or 'p3'
+  //
+  // An example of a filter specified from the terminal:
+  // ```
+  // export DB_LOG_STARLARK_CALLS='params;callstack;result'
+  // export DB_LOG_STARLARK_CALLS_FILTER='cc_toolchain;_is_enabled:module_maps|header_modules'
+  // ```
+  // This means that
+  // a) All calls that are logged will be logged with the passed parameters, the callstack and the result
+  // b) The logging will be applied to
+  //      * all `cc_toolchain` calls
+  //      * `_is_enabled` calls which have "module_maps" or "header_modules" values among parameters
+  private static final Map<String, Set<Set<String>>> DB_CALL_FILTER = new HashMap<>();
+
+  static {
+    final var logCallFeatures = new HashSet<>(
+            Arrays.asList(System.getenv()
+                    .getOrDefault("DB_LOG_STARLARK_CALLS", "").split(";"))
+    );
+    DB_LOG_CALL_PARAMS = logCallFeatures.contains("params");
+    DB_LOG_CALL_CALLSTACK = logCallFeatures.contains("callstack");
+    DB_LOG_CALL_RESULT = logCallFeatures.contains("result");
+    String[] logCallFilters = System.getenv()
+            .getOrDefault("DB_LOG_STARLARK_CALLS_FILTER", "").split(";");
+    for (String logCallFilter : logCallFilters) {
+      if (logCallFilter.isBlank()) {
+        continue;
+      }
+      final var nameAndOrParamGroups = logCallFilter.split(":");
+      final var name = nameAndOrParamGroups[0];
+      final var orParamGroupsFilter = DB_CALL_FILTER.computeIfAbsent(name, key -> new HashSet<>());
+      final var orParamGroups = nameAndOrParamGroups.length > 1
+              ? nameAndOrParamGroups[1].split("\\|")
+              : new String[0];
+      for (String orParamGroup : orParamGroups) {
+        final String[] andParams = orParamGroup.split("&");
+        orParamGroupsFilter.add(new HashSet<>(List.of(andParams)));
+      }
+    }
+  }
+
+  private static boolean dbIsAcceptableCall(Object fn, Object[] positionalArgs, Object[] namedArgs) {
+    if (DB_CALL_FILTER.isEmpty()) {
+      return true;
+    }
+    if (!(fn instanceof StarlarkFunction)) {
+      return false;
+    }
+    String functionName = ((StarlarkFunction) fn).getName();
+    final var orParamGroups = DB_CALL_FILTER.get(functionName);
+    if (orParamGroups == null) {
+      return false;
+    } else if (orParamGroups.isEmpty()) {
+      return true;
+    }
+    for (var andParams : orParamGroups) {
+      int counter = 0;
+      for (var positional : positionalArgs) {
+        if (andParams.contains(positional.toString())) {
+          ++counter;
+        }
+      }
+      for (var named : namedArgs) {
+        if (andParams.contains(named.toString())) {
+          ++counter;
+        }
+      }
+      if (counter >= andParams.size()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static void dbLogCall(StarlarkThread thread, Object fn, Object[] positional,
+                                Object[] named, Object result) {
+    final var dbLogCalls = DB_LOG_CALLS && dbIsAcceptableCall(fn, positional, named);
+    if (dbLogCalls) {
+      final var fr = thread.frame(0);
+      final var loc = fr.getLocation();
+      StringBuilder sb = new StringBuilder();
+      String threadId = String.format("%h", System.identityHashCode(thread));
+      sb.append(String.format("(%s): evaluating call %s at %s\n", threadId, fn, loc.toString()));
+      if (DB_LOG_CALL_PARAMS) {
+        sb.append("  positional args: ").append(Arrays.toString(positional)).append("\n");
+        sb.append("  named args: ").append(Arrays.toString(named)).append("\n");
+      }
+      if (DB_LOG_CALL_CALLSTACK) {
+        sb.append("  call stack:\n");
+        for (var entry : thread.getCallStack()) {
+          sb.append("    (")
+                  .append(threadId)
+                  .append(") ")
+                  .append(entry.name)
+                  .append("(")
+                  .append(entry.location)
+                  .append(")\n");
+        }
+      }
+      if (DB_LOG_CALL_RESULT) {
+        sb.append("  result: ").append(result).append("\n");
+      }
+      System.err.print(sb);
+    }
+  }
+  // databricks-extension }
 
   /**
    * Calls the function-like value {@code fn} in the specified thread, passing it the given
@@ -803,7 +912,11 @@ public final class Starlark {
 
     thread.push(callable);
     try {
-      return callable.fastcall(thread, positional, named);
+      // databricks-changed {
+      Object result = callable.fastcall(thread, positional, named);
+      dbLogCall(thread, callable, positional, named, result);
+      return result;
+      // databricks-changed }
     } catch (UncheckedEvalException | UncheckedEvalError ex) {
       throw ex; // already wrapped
     } catch (RuntimeException ex) {

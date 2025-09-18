@@ -88,6 +88,8 @@ public enum CompileBuildVariables {
   DEPENDENT_MODULE_MAP_FILES("dependent_module_map_files"),
   /** Variable for the collection of module files. */
   MODULE_FILES("module_files"),
+  /** Variable for the collection of module files built by bazel. */
+  MANAGED_MODULE_FILES("managed_module_files"),
   /** Variable for the collection of macros defined for preprocessor. */
   PREPROCESSOR_DEFINES("preprocessor_defines"),
   /** Variable for the gcov coverage file path. */
@@ -535,6 +537,7 @@ public enum CompileBuildVariables {
     if (featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)) {
       // Module inputs will be set later when the action is executed.
       buildVariables.addStringSequenceVariable(MODULE_FILES.getVariableName(), ImmutableSet.of());
+      buildVariables.addStringSequenceVariable(MANAGED_MODULE_FILES.getVariableName(), ImmutableSet.of());
     }
     buildVariables.addPathFragmentSequenceVariable(INCLUDE_PATHS.getVariableName(), includeDirs);
     buildVariables.addPathFragmentSequenceVariable(

@@ -1159,14 +1159,20 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   private static CcToolchainVariables calculateModuleVariable(
       NestedSet<Artifact> potentialModules) {
     ImmutableList.Builder<String> usedModulePaths = ImmutableList.builder();
+    ImmutableList.Builder<String> managedModulePaths = ImmutableList.builder();
     for (Artifact input : potentialModules.toList()) {
       if (input.isFileType(CppFileTypes.CPP_MODULE)) {
         usedModulePaths.add(input.getExecPathString());
+        if (!input.getExecPathString().contains("prebuilt_modules")) {
+          managedModulePaths.add(input.getExecPathString());
+        }
       }
     }
     CcToolchainVariables.Builder variableBuilder = CcToolchainVariables.builder();
     variableBuilder.addStringSequenceVariable(
         CompileBuildVariables.MODULE_FILES.getVariableName(), usedModulePaths.build());
+    variableBuilder.addStringSequenceVariable(
+        CompileBuildVariables.MANAGED_MODULE_FILES.getVariableName(), managedModulePaths.build());
     return variableBuilder.build();
   }
 

@@ -292,7 +292,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.executionInfo = executionInfo;
     this.actionName = actionName;
     this.featureConfiguration = featureConfiguration;
-    this.needsIncludeValidation = cppSemantics.needsIncludeValidation();
+    this.needsIncludeValidation = cppSemantics.needsIncludeValidation(featureConfiguration);
     this.builtInIncludeDirectories = builtInIncludeDirectories;
     this.additionalInputs = null;
     this.usedModules = null;

@@ -59,7 +59,7 @@ public interface CppSemantics extends StarlarkValue {
   boolean needsDotdInputPruning(BuildConfigurationValue configuration);
 
   /** Returns true iff this build requires include validation. */
-  boolean needsIncludeValidation();
+  boolean needsIncludeValidation(FeatureConfiguration config);
 
   /** No-op in Bazel */
   void validateLayeringCheckFeatures(

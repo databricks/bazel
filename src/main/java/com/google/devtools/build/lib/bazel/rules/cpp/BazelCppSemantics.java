@@ -24,14 +24,9 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
-import com.google.devtools.build.lib.rules.cpp.AspectLegalCppSemantics;
+import com.google.devtools.build.lib.rules.cpp.*;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
-import com.google.devtools.build.lib.rules.cpp.CppActionNames;
-import com.google.devtools.build.lib.rules.cpp.CppCompileActionBuilder;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -128,7 +123,15 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
   }
 
   @Override
-  public boolean needsIncludeValidation() {
+  public boolean needsIncludeValidation(FeatureConfiguration config) {
+    // databricks-extension {
+    // The reason is the same as with OBJC. On top of that, if there are implicit
+    // module-maps for the STL, then Bazel doesn't know about the headers that might
+    // be included into a module which is used when compiling the code.
+    if (language == Language.CPP && config.isEnabled(CppRuleClasses.MODULE_MAPS)) {
+      return false;
+    }
+    // databricks-extension }
     return language != Language.OBJC;
   }
 

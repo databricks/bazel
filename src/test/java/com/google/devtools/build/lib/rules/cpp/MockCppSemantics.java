@@ -67,7 +67,7 @@ public final class MockCppSemantics implements CppSemantics {
   }
 
   @Override
-  public boolean needsIncludeValidation() {
+  public boolean needsIncludeValidation(FeatureConfiguration configuration) {
     return true;
   }
 

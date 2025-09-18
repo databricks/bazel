@@ -566,7 +566,7 @@ attrs = {
     "implementation_deps": attr.label_list(providers = [CcInfo], allow_files = False),
     "hdrs": attr.label_list(
         allow_files = True,
-        flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
+        flags = ["DIRECT_COMPILE_TIME_INPUT"],
     ),
     "strip_include_prefix": attr.string(),
     "include_prefix": attr.string(),

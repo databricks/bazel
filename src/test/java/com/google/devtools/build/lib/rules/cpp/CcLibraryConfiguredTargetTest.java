@@ -19,6 +19,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.rules.cpp.SolibSymlinkAction.MAX_FILENAME_LENGTH;
+import static org.junit.Assert.assertNotNull;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -937,6 +938,43 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .containsExactly(
             getBinArtifact("_objs/b/b.pic.pcm", getConfiguredTarget("//module:b")),
             getBinArtifact("_objs/g/g.pic.pcm", getConfiguredTarget("//module:g")));
+  }
+
+  @Test
+  public void testModulesFromAnotherRepo() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(MockCcSupport.HEADER_MODULES_FEATURES, CppRuleClasses.SUPPORTS_PIC));
+    useConfiguration("--cpu=k8");
+
+    // Setup external repository with a library 'a' in it
+    scratch.appendFile("WORKSPACE", "local_repository(name = 'universe', path = '/module')");
+    scratch.file("/module/WORKSPACE", "");
+    scratch.file("/module/BUILD",
+        "package(features = ['header_modules'])\n" +
+        "cc_library(",
+        "    name = 'a',",
+        "    srcs = ['a.h', 'a.cc'],",
+        ")");
+
+    // Use '@universe//:a' dependency
+    scratch.file("test/BUILD",
+        "cc_library(",
+        "    name = 'mylib',",
+        "    srcs = ['mylib.h', 'mylib.cc'],",
+        "    deps = ['@universe//:a'],",
+        ")");
+
+    // This reloads WORKSPACE file
+    invalidatePackages();
+
+    // Trigger creation of cpp compile actions
+    ConfiguredTarget aTarget = getConfiguredTarget("@universe//:a");
+    Artifact aObjectArtifact = getBinArtifact("_objs/a/a.pic.o", aTarget);
+    assertNotNull(aObjectArtifact);
   }
 
   @Test

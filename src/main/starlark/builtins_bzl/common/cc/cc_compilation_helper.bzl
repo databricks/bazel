@@ -297,9 +297,10 @@ def _init_cc_compilation_context(
     header_module = None
     if _enabled(feature_configuration, "module_maps"):
         if not module_map:
+            workspace_name = ("@" + label.workspace_name) if label.workspace_name else ""
             module_map = cc_common.create_module_map(
                 file = actions.declare_file(label.name + ".cppmap"),
-                name = label.workspace_name + "//" + label.package + ":" + label.name,
+                name = workspace_name + "//" + label.package + ":" + label.name,
             )
 
         # There are different modes for module compilation:

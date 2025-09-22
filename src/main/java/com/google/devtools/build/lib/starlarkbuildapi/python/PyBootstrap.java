@@ -29,6 +29,7 @@ public class PyBootstrap implements Bootstrap {
           PackageIdentifier.createUnchecked("_builtins", ""),
           PackageIdentifier.createUnchecked("bazel_tools", ""),
           PackageIdentifier.createUnchecked("rules_python", ""),
+          PackageIdentifier.createUnchecked("do_not_use_rules_python", ""),
           PackageIdentifier.createUnchecked("", "tools/build_defs/python"));
 
   public PyBootstrap() {}

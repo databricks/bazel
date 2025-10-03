@@ -402,8 +402,39 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
     content.append("\n");
   }
 
+  // databricks-extension {
+  private static final String DB_TEXTUAL_HEADERS_FILE = System.getenv().getOrDefault("DB_TEXTUAL_HEADERS_FILE", "");
+
+  private static final List<Pattern> DB_TEXTUAL_HEADERS;
+  static {
+      var patterns = new ArrayList<Pattern>();
+      if (!DB_TEXTUAL_HEADERS_FILE.isBlank()) {
+          Path dbTextualHeadersPath = DB_TEXTUAL_HEADERS_FILE.startsWith("~/")
+                  ? Path.of(System.getenv("user.home"), DB_TEXTUAL_HEADERS_FILE.substring("~/".length()))
+                  : Path.of(DB_TEXTUAL_HEADERS_FILE);
+          try (var lines = Files.lines(dbTextualHeadersPath)) {
+              patterns.addAll(lines.filter(line -> !line.isBlank()).map(Pattern::compile).toList());
+          }
+          catch (IOException ex) {
+              ex.printStackTrace();
+          }
+      }
+      DB_TEXTUAL_HEADERS = Collections.unmodifiableList(patterns);
+  }
+
+  private static boolean isDbTextualHeader(PathFragment path) {
+    for (var headerPattern : DB_TEXTUAL_HEADERS) {
+      if (headerPattern.matcher(path.getPathString()).matches()) {
+        return true;
+      }
+    }
+    return false;
+  }
+  // databricks-extension }
+
   private boolean shouldCompileHeader(PathFragment path) {
-    return compiledModule && !CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(path);
+    // databricks-changed:
+    return compiledModule && !CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(path) && !isDbTextualHeader(path);
   }
 
   @Override

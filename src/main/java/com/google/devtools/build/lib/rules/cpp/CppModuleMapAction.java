@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -21,6 +22,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.escape.CharEscaper;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -37,17 +39,18 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationContext.CommandLineCcCompilationContext;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.*;
+import java.util.function.BiConsumer;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
@@ -83,6 +86,18 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
   private final boolean externDependencies;
   private final ImmutableSortedMap<String, String> executionInfo;
 
+  // databricks-extension {
+  private final CommandLineCcCompilationContext cmdLineCtx;
+
+  // todo(petrk): this breaks @Immutable
+  private CcToolchainVariables ccToolchainVariables = null;
+  public synchronized void provideCcToolchainVars(CcToolchainVariables vars) {
+    if (this.ccToolchainVariables == null) {
+      this.ccToolchainVariables = vars;
+    }
+  }
+  // databricks-extension }
+
   public CppModuleMapAction(
       ActionOwner owner,
       CppModuleMap cppModuleMap,
@@ -96,7 +111,33 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
       boolean generateSubmodules,
       boolean externDependencies,
       OutputPathsMode outputPathsMode,
-      ImmutableMap<String, String> executionInfo) {
+      ImmutableMap<String, String> executionInfo
+  ) {
+    this(
+        owner, cppModuleMap, privateHeaders, publicHeaders,
+        dependencies, additionalExportedHeaders, separateModuleHeaders,
+        compiledModule, moduleMapHomeIsCwd, generateSubmodules,
+        externDependencies, outputPathsMode, executionInfo,
+        CommandLineCcCompilationContext.EMPTY_CONTEXT
+    );
+  }
+
+  public CppModuleMapAction(
+      ActionOwner owner,
+      CppModuleMap cppModuleMap,
+      Iterable<Artifact> privateHeaders,
+      Iterable<Artifact> publicHeaders,
+      Iterable<CppModuleMap> dependencies,
+      Iterable<PathFragment> additionalExportedHeaders,
+      Iterable<Artifact> separateModuleHeaders,
+      boolean compiledModule,
+      boolean moduleMapHomeIsCwd,
+      boolean generateSubmodules,
+      boolean externDependencies,
+      OutputPathsMode outputPathsMode,
+      ImmutableMap<String, String> executionInfo,
+      CommandLineCcCompilationContext cmdLineCtx
+      ) {
     super(
         owner,
         NestedSetBuilder.<Artifact>stableOrder()
@@ -130,6 +171,9 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
         storedExecutionInfo.isEmpty()
             ? ImmutableSortedMap.of()
             : executionInfoInterner.intern(ImmutableSortedMap.copyOf(storedExecutionInfo));
+    // databricks-extension {
+    this.cmdLineCtx = cmdLineCtx;
+    // databricks-extension }
   }
 
   @Override
@@ -227,6 +271,46 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
       for (CppModuleMap dep : dependencies) {
         content.append("  use \"").append(dep.getName()).append("\"\n");
       }
+
+      // databricks-extension {
+      final BiConsumer<String, Iterable<PathFragment>> appendIncludeDirs = (opt, values) -> {
+        try {
+          for (PathFragment value : values) {
+            if (!value.isEmpty()) {
+              content.append("  command_line_option \"").append(opt).append("\"\n");
+              content.append("  command_line_option \"").append(value.getPathString()).append("\"\n");
+            }
+          }
+        }
+        catch (IOException ex) {
+          throw new RuntimeException(ex);
+        }
+      };
+      appendIncludeDirs.accept("-iquote", cmdLineCtx.quoteIncludeDirs);
+      appendIncludeDirs.accept("-I", cmdLineCtx.includeDirs);
+      appendIncludeDirs.accept("-isystem", cmdLineCtx.systemIncludeDirs);
+//      for (var define : cmdLineCtx.defines) {
+//        content.append("  command_line_option \"-D").append(JavaStringEscaper.escapeString(define)).append("\"\n");
+//      }
+//      for (var define : cmdLineCtx.localDefines) {
+//        content.append("  command_line_option \"-D").append(JavaStringEscaper.escapeString(define)).append("\"\n");
+//      }
+      try {
+        final var vars = ccToolchainVariables.getSequenceVariable("user_compile_flags", pathMapper);
+        for (var variable : vars) {
+          final var value = variable.getStringValue("", pathMapper);
+          if (value != null) {
+            if (value.startsWith("-D")) {
+              content.append("  command_line_option \"").append(JavaStringEscaper.escapeString(value)).append("\"\n");
+            } else if (value.startsWith("-I")) {
+              content.append("  command_line_option \"").append(JavaStringEscaper.escapeString(value)).append("\"\n");
+            }
+          }
+        }
+      } catch (CcToolchainFeatures.ExpansionException ex) {
+        throw new RuntimeException(ex);
+      }
+      // databricks-extension }
 
       if (!Iterables.isEmpty(separateModuleHdrs)) {
         String separateName = cppModuleMap.getName() + CppModuleMap.SEPARATE_MODULE_SUFFIX;
@@ -418,5 +502,30 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
       artifacts.add(map.getArtifact());
     }
     return artifacts;
+  }
+}
+
+@Immutable
+final class JavaStringEscaper extends CharEscaper {
+  public static final JavaStringEscaper INSTANCE = new JavaStringEscaper();
+
+  private static final CharMatcher UNSAFECHAR_MATCHER =
+      CharMatcher.anyOf("\"").precomputed();
+
+  @Override
+  @Nullable
+  public char[] escape(char c) {
+    if (!UNSAFECHAR_MATCHER.matches(c)) {
+      return null;
+    } else {
+      char[] result = new char[2];
+      result[0] = '\\';
+      result[1] = c;
+      return result;
+    }
+  }
+
+  public static String escapeString(String unescaped) {
+    return INSTANCE.escape(unescaped);
   }
 }

@@ -670,14 +670,14 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
    * actions.
    */
   @Immutable
-  private static final class CommandLineCcCompilationContext {
-    private final ImmutableList<PathFragment> includeDirs;
-    private final ImmutableList<PathFragment> quoteIncludeDirs;
-    private final ImmutableList<PathFragment> systemIncludeDirs;
-    private final ImmutableList<PathFragment> frameworkIncludeDirs;
-    private final ImmutableList<PathFragment> externalIncludeDirs;
-    private final ImmutableList<String> defines;
-    private final ImmutableList<String> localDefines;
+  /*package*/ static final class CommandLineCcCompilationContext {
+    final ImmutableList<PathFragment> includeDirs;
+    final ImmutableList<PathFragment> quoteIncludeDirs;
+    final ImmutableList<PathFragment> systemIncludeDirs;
+    final ImmutableList<PathFragment> frameworkIncludeDirs;
+    final ImmutableList<PathFragment> externalIncludeDirs;
+    final ImmutableList<String> defines;
+    final ImmutableList<String> localDefines;
 
     CommandLineCcCompilationContext(
         ImmutableList<PathFragment> includeDirs,
@@ -695,6 +695,11 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       this.defines = defines;
       this.localDefines = localDefines;
     }
+
+    final static CommandLineCcCompilationContext EMPTY_CONTEXT = new CommandLineCcCompilationContext(
+        ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), ImmutableList.of(),
+        ImmutableList.of(), ImmutableList.of()
+    );
   }
 
   /** Creates a new builder for a {@link CcCompilationContext} instance. */

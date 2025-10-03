@@ -343,6 +343,13 @@ def _init_cc_compilation_context(
                 module_map_home_is_cwd = _enabled(feature_configuration, "module_map_home_cwd"),
                 generate_submodules = _enabled(feature_configuration, "generate_submodules"),
                 without_extern_dependencies = not _enabled(feature_configuration, "module_map_without_extern_module"),
+                quote_includes = depset(quote_include_dirs_for_context),
+                framework_includes = depset(framework_include_dirs),
+                external_includes = depset(external_include_dirs),
+                system_includes = depset(system_include_dirs_for_context),
+                includes = depset(include_dirs_for_context),
+                defines = depset(defines),
+                local_defines = depset(local_defines),
             )
 
         if generates_pic_header_module:

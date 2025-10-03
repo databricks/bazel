@@ -973,7 +973,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
     // Trigger creation of cpp compile actions
     ConfiguredTarget aTarget = getConfiguredTarget("@universe//:a");
-    Artifact aObjectArtifact = getBinArtifact("_objs/a/a.pic.o", aTarget);
+    Artifact aObjectArtifact = getBinArtifact("_objs/a/universe_sl__sl__cl_a.pic.o", aTarget);
     assertNotNull(aObjectArtifact);
   }
 

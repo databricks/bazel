@@ -857,7 +857,7 @@ public final class CcCompilationHelper {
         "All cc rules must support module maps.");
 
     // Create compile actions (both PIC and no-PIC).
-    CcCompilationOutputs ccOutputs = createCcCompileActions(ruleContext.getStarlarkThread());
+    CcCompilationOutputs ccOutputs = createCcCompileActions(ruleContext);
 
     if (cppConfiguration.processHeadersInDependencies()) {
       return new CompilationInfo(
@@ -984,8 +984,9 @@ public final class CcCompilationHelper {
    * file. It takes into account coverage, and PIC, in addition to using the settings specified on
    * the current object. This method should only be called once.
    */
-  private CcCompilationOutputs createCcCompileActions(StarlarkThread thread)
+  private CcCompilationOutputs createCcCompileActions(RuleContext ruleContext)
       throws RuleErrorException, InterruptedException {
+    final var thread = ruleContext.getStarlarkThread();
     CcCompilationOutputs.Builder result = CcCompilationOutputs.builder();
     Preconditions.checkNotNull(ccCompilationContext);
 
@@ -1009,6 +1010,33 @@ public final class CcCompilationHelper {
         }
       }
     }
+
+    // databricks-extension {
+    // Provide compile options to the action that generates module.cppmap
+    CppModuleMap cppModuleMap = ccCompilationContext.getCppModuleMap();
+    if (cppModuleMap != null) {
+      CppCompileActionBuilder builder = initializeCompileAction(cppModuleMap.getArtifact());
+      builder = new CppCompileActionBuilder(builder).setPicMode(false);
+      var vars = setupCompileBuildVariables(
+          thread,
+          builder,
+          null,
+          /* usePic= */ false,
+          /* needsFdoBuildVariables= */ false,
+          cppModuleMap,
+          /* enableCoverage= */ false,
+          /* gcnoFile= */ null,
+          /* isUsingFission= */ false,
+          /* dwoFile= */ null,
+          /* ltoIndexingFile= */ null,
+          /* additionalBuildVariables= */ ImmutableMap.of());
+      final var writeModuleMapAction = ruleContext.getAnalysisEnvironment()
+          .getLocalGeneratingAction(cppModuleMap.getArtifact());
+      if (writeModuleMapAction instanceof CppModuleMapAction cppModuleMapAction) {
+        cppModuleMapAction.provideCcToolchainVars(vars);
+      }
+    }
+    // databricks-extension }
 
     ImmutableMap<Artifact, String> outputNameMap;
     String outputNamePrefixDir = null;

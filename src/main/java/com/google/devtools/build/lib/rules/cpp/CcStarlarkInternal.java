@@ -577,7 +577,14 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "module_map_home_is_cwd", positional = false, named = true),
         @Param(name = "generate_submodules", positional = false, named = true),
         @Param(name = "without_extern_dependencies", positional = false, named = true),
-      })
+        @Param(name = "quote_includes", positional = false, named = true, defaultValue = "unbound"),
+        @Param(name = "framework_includes", positional = false, named = true, defaultValue = "unbound"),
+        @Param(name = "external_includes", positional = false, named = true, defaultValue = "unbound"),
+        @Param(name = "system_includes", positional = false, named = true, defaultValue = "unbound"),
+        @Param(name = "includes", positional = false, named = true, defaultValue = "unbound"),
+        @Param(name = "defines", positional = false, named = true, defaultValue = "unbound"),
+        @Param(name = "local_defines", positional = false, named = true, defaultValue = "unbound"),
+})
   public void createModuleMapAction(
       StarlarkActionFactory actions,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
@@ -590,10 +597,26 @@ public class CcStarlarkInternal implements StarlarkValue {
       Boolean compiledModule,
       Boolean moduleMapHomeIsCwd,
       Boolean generateSubmodules,
-      Boolean withoutExternDependencies)
+      Boolean withoutExternDependencies,
+      Object quote_includes,
+      Object framework_includes,
+      Object external_includes,
+      Object system_includes,
+      Object includes,
+      Object defines,
+      Object local_defines)
       throws EvalException {
     RuleContext ruleContext = actions.getRuleContext();
     ActionConstructionContext actionConstructionContext = actions.getActionConstructionContext();
+    final var ccCmdCtx = new CcCompilationContext.CommandLineCcCompilationContext(
+        toListOfPathFragments(quote_includes, "quote_includes"),
+        toListOfPathFragments(framework_includes, "framework_includes"),
+        toListOfPathFragments(external_includes, "external_includes"),
+        toListOfPathFragments(system_includes, "system_includes"),
+        toListOfPathFragments(includes, "includes"),
+        toListOfStrings(defines, "local_defines"),
+        toListOfStrings(local_defines, "local_defines")
+    );
     actions
         .asActionRegistry(actions)
         .registerAction(
@@ -616,6 +639,23 @@ public class CcStarlarkInternal implements StarlarkValue {
                 PathMappers.getOutputPathsMode(ruleContext.getConfiguration()),
                 ruleContext
                     .getConfiguration()
-                    .modifiedExecutionInfo(ImmutableMap.of(), CppModuleMapAction.MNEMONIC)));
+                    .modifiedExecutionInfo(ImmutableMap.of(), CppModuleMapAction.MNEMONIC),
+                ccCmdCtx));
+  }
+
+  private static ImmutableList<PathFragment> toListOfPathFragments(Object obj, String fieldName)
+      throws EvalException {
+    return toListOfStrings(obj, fieldName).stream()
+        .map(PathFragment::create)
+        .collect(toImmutableList());
+  }
+
+  private static ImmutableList<String> toListOfStrings(Object obj, String fieldName)
+      throws EvalException {
+    if (obj == Starlark.UNBOUND) {
+      return ImmutableList.of();
+    } else {
+      return Depset.noneableCast(obj, String.class, fieldName).toList();
+    }
   }
 }
